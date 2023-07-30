@@ -1,6 +1,9 @@
 const std = @import("std");
 const fs = std.fs;
 const io = std.io;
+const print = std.debug.print;
+const Lexer = @import("./lexer.zig");
+
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
     const args = try std.process.argsAlloc(alloc);
@@ -14,18 +17,16 @@ pub fn main() !void {
 }
 
 fn runFile(filepath: [:0]u8) !void {
-    std.debug.print("run file \n", .{});
-
     var file = try fs.cwd().openFile(filepath, .{});
     defer file.close();
 
-    var buf_reader = io.bufferedReader(file.reader());
-    var in_stream = buf_reader.reader();
+    var allocator = std.heap.page_allocator;
+    const file_size = (try file.stat()).size;
+    var buf = try allocator.alloc(u8, file_size);
 
-    var buf: [1024]u8 = undefined;
-    while (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-        std.debug.print("{s}", .{line});
-    }
+    try file.reader().readNoEof(buf);
+    try run(buf);
+    print("{s}", .{buf});
 }
 
 fn runPrompt() !void {
@@ -36,12 +37,24 @@ fn runPrompt() !void {
     var exit = false;
 
     while (!exit) {
-        std.debug.print("\n> ", .{});
+        print("\n> ", .{});
+
         if (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |line| {
-            std.debug.print("{s}", .{line});
+            print("{s}", .{line});
+            try run(&buf);
+
             if (std.mem.eql(u8, line, "exit")) {
                 exit = true;
             }
         }
     }
+}
+
+fn run(src: []const u8) !void {
+    const lexer = Lexer.init(src);
+    _ = lexer;
+}
+
+fn report(line: u32, where: []const u8, msg: []const u8) void {
+    print("[line {}] Error {} : {}", .{ line, where, msg });
 }
