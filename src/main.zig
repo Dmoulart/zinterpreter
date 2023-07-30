@@ -25,10 +25,23 @@ fn runFile(filepath: [:0]u8) !void {
     var buf: [1024]u8 = undefined;
     while (try in_stream.readUntilDelimiterOrEof(&buf, '\n')) |line| {
         std.debug.print("{s}", .{line});
-        // do something with line...
     }
 }
 
 fn runPrompt() !void {
-    std.debug.print("run prompt", .{});
+    const stdin = std.io.getStdIn().reader();
+
+    var buf: [1024]u8 = undefined;
+
+    var exit = false;
+
+    while (!exit) {
+        std.debug.print("\n> ", .{});
+        if (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |line| {
+            std.debug.print("{s}", .{line});
+            if (std.mem.eql(u8, line, "exit")) {
+                exit = true;
+            }
+        }
+    }
 }
