@@ -40,21 +40,21 @@ fn runPrompt() !void {
         print("\n> ", .{});
 
         if (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |line| {
-            print("{s}", .{line});
-            try run(&buf);
-
             if (std.mem.eql(u8, line, "exit")) {
-                exit = true;
+                return;
             }
+
+            print("{s}", .{line});
+
+            try run(line);
         }
     }
 }
 
 fn run(src: []const u8) !void {
-    const lexer = Lexer.init(src);
-    _ = lexer;
-}
-
-fn report(line: u32, where: []const u8, msg: []const u8) void {
-    print("[line {}] Error {} : {}", .{ line, where, msg });
+    var lexer = Lexer.init(src, std.heap.page_allocator);
+    _ = try lexer.scan();
+    if (lexer.had_error) {
+        std.os.exit(1);
+    }
 }
