@@ -70,21 +70,32 @@ fn scanToken(self: *Self) !void {
         '-' => .MINUS,
         '+' => .PLUS,
         ';' => .SEMICOLON,
-        '*' => .STAR,
-        '!' => if (self.match('=')) .BANG_EQUAL else .BANG,
-        '=' => if (self.match('=')) .EQUAL_EQUAL else .EQUAL,
-        '<' => if (self.match('=')) .LESS_EQUAL else .LESS,
-        '>' => if (self.match('=')) .GREATER_EQUAL else .GREATER,
         '/' => blk: {
             if (self.match('/')) {
                 while (self.peek() != '\n' and !self.isAtEnd()) {
                     _ = self.advance();
                 }
                 break :blk null;
+            } else if (self.match('*')) {
+                while (!self.isAtEnd()) {
+                    _ = self.advance();
+                    if (self.peek() == '*' and self.peekNext() == '/') {
+                        _ = self.advance();
+                        _ = self.advance();
+                        break :blk null;
+                    }
+                }
+                report(self.line, "", "Unterminated comment block");
+                break :blk null;
             } else {
                 break :blk .SLASH;
             }
         },
+        '*' => .STAR,
+        '!' => if (self.match('=')) .BANG_EQUAL else .BANG,
+        '=' => if (self.match('=')) .EQUAL_EQUAL else .EQUAL,
+        '<' => if (self.match('=')) .LESS_EQUAL else .LESS,
+        '>' => if (self.match('=')) .GREATER_EQUAL else .GREATER,
         ' ', '\r', '\t' => null,
         '\n' => blk: {
             self.line += 1;
