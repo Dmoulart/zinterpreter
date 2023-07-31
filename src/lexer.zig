@@ -33,7 +33,7 @@ pub fn scan(self: *Self) !*ArrayList(Token) {
 
     try self.tokens.append(Token{
         .type = Token.Type.EOF,
-        .lexeme = "",
+        .lexeme = self.src[self.start..self.current],
         .line = self.line,
     });
 
@@ -94,7 +94,7 @@ fn scanToken(self: *Self) !void {
 fn addToken(self: *Self, tok_type: Token.Type) !void {
     var text = self.src[self.start..self.current];
 
-    try self.tokens.append(Token{
+    try self.tokens.append(.{
         .type = tok_type,
         .lexeme = text,
         .line = self.line,
