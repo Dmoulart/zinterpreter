@@ -1,4 +1,9 @@
+const std = @import("std");
 const Self = @This();
+
+type: Type,
+lexeme: []const u8,
+line: u32,
 
 pub const Type = union(enum) {
     // Single-character tokens.
@@ -49,14 +54,25 @@ pub const Type = union(enum) {
     EOF,
 };
 
-type: Type,
-lexeme: []const u8,
-line: u32,
+const keywords = std.ComptimeStringMap(Type, .{
+    .{ "and", .AND },
+    .{ "class", .CLASS },
+    .{ "else", .ELSE },
+    .{ "false", .FALSE },
+    .{ "for", .FOR },
+    .{ "fun", .FUN },
+    .{ "if", .IF },
+    .{ "nil", .NIL },
+    .{ "or", .OR },
+    .{ "print", .PRINT },
+    .{ "return", .RETURN },
+    .{ "super", .SUPER },
+    .{ "this", .THIS },
+    .{ "true", .TRUE },
+    .{ "var", .VAR },
+    .{ "while", .WHILE },
+});
 
-pub fn init(tok_type: Type, lexeme: []const u8, line: i32) Self {
-    return Self{
-        .type = tok_type,
-        .lexeme = lexeme,
-        .line = line,
-    };
+pub fn keyword(identifier: []const u8) ?Type {
+    return keywords.get(identifier);
 }
