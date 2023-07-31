@@ -2,8 +2,28 @@ const std = @import("std");
 const report = @import("./error-reporter.zig").report;
 const Token = @import("./token.zig");
 const ArrayList = @import("std").ArrayList;
+const ComptimeStringMap = @import("std").ComptimeStringMap;
 
 const Self = @This();
+
+const keywords = ComptimeStringMap(Token.Type, .{
+    .{ "and", .AND },
+    .{ "class", .CLASS },
+    .{ "else", .ELSE },
+    .{ "false", .FALSE },
+    .{ "for", .FOR },
+    .{ "fun", .FUN },
+    .{ "if", .IF },
+    .{ "nil", .NIL },
+    .{ "or", .OR },
+    .{ "print", .PRINT },
+    .{ "return", .RETURN },
+    .{ "super", .SUPER },
+    .{ "this", .THIS },
+    .{ "true", .TRUE },
+    .{ "var", .VAR },
+    .{ "while", .WHILE },
+});
 
 src: []const u8,
 
@@ -72,6 +92,7 @@ fn scanToken(self: *Self) !void {
         },
         '"' => self.string(),
         '0'...'9' => try self.number(),
+        'a'...'z', 'A'...'Z', '_' => self.identifier(),
         else => blk: {
             self.had_error = true;
             report(self.line, "", "Unexpected character");
@@ -155,10 +176,28 @@ fn number(self: *Self) !Token.Type {
     };
 }
 
+fn identifier(self: *Self) Token.Type {
+    while (isAlphaNumeric(self.peek())) _ = self.advance();
+
+    const text = self.src[self.start..self.current];
+
+    return if (keywords.get(text)) |keyword_type| keyword_type else .IDENTIFIER;
+}
+
 fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
 }
 
 fn isDigit(char: u8) bool {
     return char >= '0' and char <= '9';
+}
+
+fn isAlphaNumeric(char: u8) bool {
+    return isAlpha(char) or isDigit(char);
+}
+
+fn isAlpha(char: u8) bool {
+    return (char >= 'a' and char <= 'z') or
+        (char >= 'A' and char <= 'Z') or
+        char == '_';
 }
