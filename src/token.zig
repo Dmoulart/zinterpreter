@@ -27,7 +27,7 @@ pub const Type = union(enum) {
     // Literals.
     IDENTIFIER,
     STRING: []const u8,
-    NUMBER,
+    NUMBER: f64,
 
     // Keywords.
     AND,

@@ -40,7 +40,7 @@ pub fn scan(self: *Self) !*ArrayList(Token) {
 fn scanToken(self: *Self) !void {
     const char: u8 = self.advance();
 
-    const maybe_tok: ?Token.Type = switch (char) {
+    const maybe_token: ?Token.Type = switch (char) {
         '(' => .LEFT_PAREN,
         ')' => .RIGHT_PAREN,
         '{' => .LEFT_BRACE,
@@ -56,7 +56,7 @@ fn scanToken(self: *Self) !void {
         '<' => if (self.match('=')) .LESS_EQUAL else .LESS,
         '>' => if (self.match('=')) .GREATER_EQUAL else .GREATER,
         '/' => blk: {
-            if (self.match('=')) {
+            if (self.match('/')) {
                 while (self.peek() != '\n' and !self.isAtEnd()) {
                     _ = self.advance();
                 }
@@ -71,6 +71,7 @@ fn scanToken(self: *Self) !void {
             break :blk null;
         },
         '"' => self.string(),
+        '0'...'9' => try self.number(),
         else => blk: {
             self.had_error = true;
             report(self.line, "", "Unexpected character");
@@ -78,8 +79,8 @@ fn scanToken(self: *Self) !void {
         },
     };
 
-    if (maybe_tok) |tok| {
-        try self.addToken(tok);
+    if (maybe_token) |token| {
+        try self.addToken(token);
     }
 }
 
@@ -111,6 +112,11 @@ fn peek(self: *Self) u8 {
     return self.src[self.current];
 }
 
+fn peekNext(self: *Self) u8 {
+    if (self.current + 1 >= self.src.len) return 0;
+    return self.src[self.current + 1];
+}
+
 fn string(self: *Self) ?Token.Type {
     while (self.peek() != '"' and !self.isAtEnd()) {
         if (self.peek() == '\n') {
@@ -133,6 +139,26 @@ fn string(self: *Self) ?Token.Type {
     };
 }
 
+fn number(self: *Self) !Token.Type {
+    while (isDigit(self.peek())) _ = self.advance();
+
+    // Look for a fractional part
+    if (self.peek() == '.' and isDigit(self.peekNext())) {
+        // Consume the "."
+        _ = self.advance();
+
+        while (isDigit(self.peek())) _ = self.advance();
+    }
+
+    return Token.Type{
+        .NUMBER = try std.fmt.parseFloat(f64, self.src[self.start..self.current]),
+    };
+}
+
 fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
+}
+
+fn isDigit(char: u8) bool {
+    return char >= '0' and char <= '9';
 }
