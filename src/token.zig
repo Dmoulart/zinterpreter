@@ -1,6 +1,6 @@
 const Self = @This();
 
-pub const Type = enum {
+pub const Type = union(enum) {
     // Single-character tokens.
     LEFT_PAREN,
     RIGHT_PAREN,
@@ -26,7 +26,7 @@ pub const Type = enum {
 
     // Literals.
     IDENTIFIER,
-    STRING,
+    STRING: []const u8,
     NUMBER,
 
     // Keywords.

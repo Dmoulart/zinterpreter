@@ -53,5 +53,9 @@ fn runPrompt() !void {
 
 fn run(src: []const u8) !void {
     var lexer = Lexer.init(src, std.heap.page_allocator);
-    _ = try lexer.scan();
+    var tokens = try lexer.scan();
+
+    for (tokens.items) |tok| {
+        print("\n - lex:{s} | type:{}\n", .{ tok.lexeme, tok.type });
+    }
 }

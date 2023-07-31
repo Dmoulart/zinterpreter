@@ -127,8 +127,10 @@ fn string(self: *Self) ?Token.Type {
     _ = self.advance();
 
     const value = self.src[(self.start + 1)..(self.current - 1)];
-    _ = value;
-    return .STRING;
+
+    return Token.Type{
+        .STRING = value,
+    };
 }
 
 fn isAtEnd(self: *Self) bool {
