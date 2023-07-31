@@ -51,6 +51,26 @@ fn scanToken(self: *Self) !void {
         '+' => .PLUS,
         ';' => .SEMICOLON,
         '*' => .STAR,
+        '!' => if (self.match('=')) .BANG_EQUAL else .BANG,
+        '=' => if (self.match('=')) .EQUAL_EQUAL else .EQUAL,
+        '<' => if (self.match('=')) .LESS_EQUAL else .LESS,
+        '>' => if (self.match('=')) .GREATER_EQUAL else .GREATER,
+        '/' => blk: {
+            if (self.match('=')) {
+                while (self.peek() != '\n' and !self.isAtEnd()) {
+                    _ = self.advance();
+                }
+                break :blk null;
+            } else {
+                break :blk .SLASH;
+            }
+        },
+        ' ', '\r', '\t' => null,
+        '\n' => blk: {
+            self.line += 1;
+            break :blk null;
+        },
+        '"' => self.string(),
         else => blk: {
             self.had_error = true;
             report(self.line, "", "Unexpected character");
@@ -73,9 +93,42 @@ fn addToken(self: *Self, tok_type: Token.Type) !void {
     });
 }
 
+fn match(self: *Self, expected: u8) bool {
+    if (self.isAtEnd()) return false;
+    if (self.src[self.current - 1] != expected) return false;
+
+    self.current += 1;
+    return true;
+}
+
 fn advance(self: *Self) u8 {
     self.current += 1;
     return self.src[self.current - 1];
+}
+
+fn peek(self: *Self) u8 {
+    if (self.isAtEnd()) return 0;
+    return self.src[self.current - 1];
+}
+
+fn string(self: *Self) ?Token.Type {
+    while (self.peek() != '"' and !self.isAtEnd()) {
+        if (self.peek() == '\n') {
+            self.line += 1;
+        }
+        _ = self.advance();
+    }
+
+    if (self.isAtEnd()) {
+        report(self.line, "", "Unterminated string.");
+        return null;
+    }
+
+    _ = self.advance();
+
+    const value = self.src[(self.start + 1)..(self.current - 1)];
+    _ = value;
+    return .STRING;
 }
 
 fn isAtEnd(self: *Self) bool {

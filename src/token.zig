@@ -13,6 +13,7 @@ pub const Type = enum {
     SEMICOLON,
     SLASH,
     STAR,
+
     // One or two character tokens.
     BANG,
     BANG_EQUAL,
@@ -22,10 +23,12 @@ pub const Type = enum {
     GREATER_EQUAL,
     LESS,
     LESS_EQUAL,
+
     // Literals.
     IDENTIFIER,
     STRING,
     NUMBER,
+
     // Keywords.
     AND,
     CLASS,

@@ -54,7 +54,4 @@ fn runPrompt() !void {
 fn run(src: []const u8) !void {
     var lexer = Lexer.init(src, std.heap.page_allocator);
     _ = try lexer.scan();
-    if (lexer.had_error) {
-        std.os.exit(1);
-    }
 }
