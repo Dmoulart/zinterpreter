@@ -78,12 +78,10 @@ fn scanToken(self: *Self) !void {
                 break :blk null;
             } else if (self.match('*')) {
                 while (!self.isAtEnd()) {
-                    _ = self.advance();
-                    if (self.peek() == '*' and self.peekNext() == '/') {
-                        _ = self.advance();
-                        _ = self.advance();
+                    if (self.match('*') and self.match('/')) {
                         break :blk null;
                     }
+                    _ = self.advance();
                 }
                 report(self.line, "", "Unterminated comment block");
                 break :blk null;
