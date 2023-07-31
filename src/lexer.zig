@@ -95,7 +95,7 @@ fn addToken(self: *Self, tok_type: Token.Type) !void {
 
 fn match(self: *Self, expected: u8) bool {
     if (self.isAtEnd()) return false;
-    if (self.src[self.current - 1] != expected) return false;
+    if (self.src[self.current] != expected) return false;
 
     self.current += 1;
     return true;
@@ -108,7 +108,7 @@ fn advance(self: *Self) u8 {
 
 fn peek(self: *Self) u8 {
     if (self.isAtEnd()) return 0;
-    return self.src[self.current - 1];
+    return self.src[self.current];
 }
 
 fn string(self: *Self) ?Token.Type {
