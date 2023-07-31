@@ -131,10 +131,12 @@ fn commentBlock(self: *Self) void {
         if (self.peek() == '/' and self.peekNext() == '*') {
             _ = self.advance();
             _ = self.advance();
+
             self.commentBlock();
         } else if (self.peek() == '*' and self.peekNext() == '/') {
             _ = self.advance();
             _ = self.advance();
+
             return;
         }
         if (self.peek() == '\n') {
