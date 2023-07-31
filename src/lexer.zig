@@ -60,7 +60,7 @@ fn scanToken(self: *Self) !void {
                 }
                 break :blk null;
             } else if (self.match('*')) {
-                self.commentBlock();
+                self.readCommentBlock();
                 break :blk null;
             } else {
                 break :blk .SLASH;
@@ -76,9 +76,9 @@ fn scanToken(self: *Self) !void {
             self.line += 1;
             break :blk null;
         },
-        '"' => self.string(),
-        '0'...'9' => try self.number(),
-        'a'...'z', 'A'...'Z', '_' => self.identifier(),
+        '"' => self.readString(),
+        '0'...'9' => try self.readNumber(),
+        'a'...'z', 'A'...'Z', '_' => self.readIdentifier(),
         else => blk: {
             self.had_error = true;
             report(self.line, self.src[self.start..self.current], "Unexpected character");
@@ -124,7 +124,7 @@ fn peekNext(self: *Self) u8 {
     return self.src[self.current + 1];
 }
 
-fn commentBlock(self: *Self) void {
+fn readCommentBlock(self: *Self) void {
     while (!self.isAtEnd()) {
 
         // nested comment block
@@ -132,7 +132,7 @@ fn commentBlock(self: *Self) void {
             _ = self.advance();
             _ = self.advance();
 
-            self.commentBlock();
+            self.readCommentBlock();
         } else if (self.peek() == '*' and self.peekNext() == '/') {
             _ = self.advance();
             _ = self.advance();
@@ -151,7 +151,7 @@ fn commentBlock(self: *Self) void {
     self.had_error = true;
 }
 
-fn string(self: *Self) ?Token.Type {
+fn readString(self: *Self) ?Token.Type {
     while (self.peek() != '"' and !self.isAtEnd()) {
         if (self.peek() == '\n') {
             self.line += 1;
@@ -173,7 +173,7 @@ fn string(self: *Self) ?Token.Type {
     };
 }
 
-fn number(self: *Self) !Token.Type {
+fn readNumber(self: *Self) !Token.Type {
     while (isDigit(self.peek())) _ = self.advance();
 
     // Look for a fractional part
@@ -189,7 +189,7 @@ fn number(self: *Self) !Token.Type {
     };
 }
 
-fn identifier(self: *Self) Token.Type {
+fn readIdentifier(self: *Self) Token.Type {
     while (isAlphanumeric(self.peek())) _ = self.advance();
 
     const text = self.src[self.start..self.current];
