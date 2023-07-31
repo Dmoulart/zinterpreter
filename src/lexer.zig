@@ -77,13 +77,7 @@ fn scanToken(self: *Self) !void {
                 }
                 break :blk null;
             } else if (self.match('*')) {
-                while (!self.isAtEnd()) {
-                    if (self.match('*') and self.match('/')) {
-                        break :blk null;
-                    }
-                    _ = self.advance();
-                }
-                report(self.line, "", "Unterminated comment block");
+                self.commentBlock();
                 break :blk null;
             } else {
                 break :blk .SLASH;
@@ -104,7 +98,7 @@ fn scanToken(self: *Self) !void {
         'a'...'z', 'A'...'Z', '_' => self.identifier(),
         else => blk: {
             self.had_error = true;
-            report(self.line, "", "Unexpected character");
+            report(self.line, self.src[self.start..self.current], "Unexpected character");
             break :blk null;
         },
     };
@@ -145,6 +139,31 @@ fn peek(self: *Self) u8 {
 fn peekNext(self: *Self) u8 {
     if (self.current + 1 >= self.src.len) return 0;
     return self.src[self.current + 1];
+}
+
+fn commentBlock(self: *Self) void {
+    while (!self.isAtEnd()) {
+
+        // nested comment block
+        if (self.peek() == '/' and self.peekNext() == '*') {
+            _ = self.advance();
+            _ = self.advance();
+            self.commentBlock();
+        } else if (self.peek() == '*' and self.peekNext() == '/') {
+            _ = self.advance();
+            _ = self.advance();
+            return;
+        }
+        if (self.peek() == '\n') {
+            self.line += 1;
+        }
+
+        if (self.current + 1 <= self.src.len) {
+            _ = self.advance();
+        }
+    }
+    report(self.line, "", "Unterminated comment block");
+    self.had_error = true;
 }
 
 fn string(self: *Self) ?Token.Type {

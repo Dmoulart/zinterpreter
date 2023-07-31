@@ -1,1 +1,6 @@
-var ok = 'true';
+/*
+
+ Comment
+ /* o*/ /*/**/
+*/
+var ok = true;
