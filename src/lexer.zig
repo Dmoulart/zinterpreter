@@ -126,7 +126,6 @@ fn peekNext(self: *Self) u8 {
 
 fn readCommentBlock(self: *Self) void {
     while (!self.isAtEnd()) {
-
         // nested comment block
         if (self.peek() == '/' and self.peekNext() == '*') {
             _ = self.advance();
@@ -160,7 +159,7 @@ fn readString(self: *Self) ?Token.Type {
     }
 
     if (self.isAtEnd()) {
-        report(self.line, "", "Unterminated string.");
+        report(self.line, self.src[self.start..self.current], "Unterminated string");
         return null;
     }
 
