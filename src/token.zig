@@ -30,7 +30,7 @@ pub const Type = union(enum) {
     LESS_EQUAL,
 
     // Literals.
-    IDENTIFIER,
+    IDENTIFIER: []const u8,
     STRING: []const u8,
     NUMBER: f64,
 

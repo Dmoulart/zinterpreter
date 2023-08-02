@@ -33,7 +33,7 @@ pub fn scan(self: *Self) !*ArrayList(Token) {
 
     try self.tokens.append(Token{
         .type = Token.Type.EOF,
-        .lexeme = self.src[self.start..self.current],
+        .lexeme = "",
         .line = self.line,
     });
 
@@ -193,7 +193,9 @@ fn readIdentifier(self: *Self) Token.Type {
 
     const text = self.src[self.start..self.current];
 
-    return if (Token.keyword(text)) |keyword_type| keyword_type else .IDENTIFIER;
+    return if (Token.keyword(text)) |keyword_type| keyword_type else Token.Type{
+        .IDENTIFIER = text,
+    };
 }
 
 fn isAtEnd(self: *Self) bool {
