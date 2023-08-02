@@ -2,7 +2,7 @@ const std = @import("std");
 const fs = std.fs;
 const io = std.io;
 const print = std.debug.print;
-const Lexer = @import("./lexer.zig");
+const Lexer = @import("./lexer/lexer.zig");
 
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
