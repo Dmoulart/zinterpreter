@@ -37,7 +37,7 @@ pub fn main() !void {
             },
         },
     };
-
+    // const ast_print = expr.print();
     var ast_print = astPrint(&expr);
     print("{s}", .{ast_print});
 }
