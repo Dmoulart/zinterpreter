@@ -4,7 +4,44 @@ const io = std.io;
 const print = std.debug.print;
 const Lexer = @import("./lex/lexer.zig");
 
+const Expr = @import("./ast/expr.zig").Expr;
+const Tok = @import("./token.zig");
+const astPrint = @import("./ast/printer.zig").print;
+
 pub fn main() !void {
+    var expr = Expr{
+        .Binary = .{
+            .left = &Expr{
+                .Unary = .{
+                    .op = Tok{
+                        .type = .MINUS,
+                        .lexeme = "-",
+                        .line = 1,
+                    },
+                    .right = &Expr{
+                        .Literal = .{ .value = "123" },
+                    },
+                },
+            },
+            .op = Tok{
+                .type = .STAR,
+                .lexeme = "*",
+                .line = 1,
+            },
+            .right = &Expr{
+                .Grouping = .{
+                    .expr = &Expr{
+                        .Literal = .{ .value = "52.27" },
+                    },
+                },
+            },
+        },
+    };
+
+    var ast_print = astPrint(&expr);
+    print("{s}", .{ast_print});
+}
+pub fn main2() !void {
     const alloc = std.heap.page_allocator;
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);

@@ -1,6 +1,6 @@
 const std = @import("std");
 const report = @import("./error-reporter.zig").report;
-const Token = @import("./token.zig");
+const Token = @import("../token.zig");
 const ArrayList = @import("std").ArrayList;
 const ComptimeStringMap = @import("std").ComptimeStringMap;
 const isAlphanumeric = std.ascii.isAlphanumeric;
