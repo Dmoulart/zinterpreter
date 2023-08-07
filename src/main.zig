@@ -31,14 +31,14 @@ pub fn main() !void {
             .right = &Expr{
                 .Grouping = .{
                     .expr = &Expr{
-                        .Literal = .{ .value = "52.27" },
+                        .Literal = .{ .value = "45.67" },
                     },
                 },
             },
         },
     };
-    // const ast_print = expr.print();
-    var ast_print = astPrint(&expr);
+    var buffer: [1024]u8 = undefined;
+    var ast_print = astPrint(&expr, buffer[0..]);
     print("{s}", .{ast_print});
 }
 pub fn main2() !void {
