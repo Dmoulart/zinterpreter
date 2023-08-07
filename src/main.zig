@@ -19,7 +19,9 @@ pub fn main() !void {
                         .line = 1,
                     },
                     .right = &Expr{
-                        .Literal = .{ .value = "123" },
+                        .Literal = .{
+                            .value = .{ .Integer = 123 },
+                        },
                     },
                 },
             },
@@ -31,7 +33,9 @@ pub fn main() !void {
             .right = &Expr{
                 .Grouping = .{
                     .expr = &Expr{
-                        .Literal = .{ .value = "45.67" },
+                        .Literal = .{
+                            .value = .{ .String = "45.67" },
+                        },
                     },
                 },
             },

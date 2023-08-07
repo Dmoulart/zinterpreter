@@ -17,7 +17,13 @@ pub const Expr = union(enum) {
     };
 
     pub const Literal = struct {
-        value: []const u8,
+        pub const Value = union(enum) {
+            String: []const u8,
+            Integer: i64,
+            Float: f64,
+        };
+
+        value: Value,
     };
 
     pub const Unary = struct {
