@@ -3,12 +3,13 @@ const fs = std.fs;
 const io = std.io;
 const print = std.debug.print;
 const Lexer = @import("./lex/lexer.zig");
+const Parser = @import("./parser/parser.zig");
 
 const Expr = @import("./ast/expr.zig").Expr;
 const Tok = @import("./token.zig");
 const astPrint = @import("./ast/printer.zig").print;
 
-pub fn main() !void {
+pub fn main2() !void {
     var expr = Expr{
         .Binary = .{
             .left = &Expr{
@@ -45,7 +46,8 @@ pub fn main() !void {
     var ast_print = astPrint(&expr, buffer[0..]);
     print("{s}", .{ast_print});
 }
-pub fn main2() !void {
+
+pub fn main() !void {
     const alloc = std.heap.page_allocator;
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
@@ -99,4 +101,10 @@ fn run(src: []const u8) !void {
     for (tokens.items) |tok| {
         print("\n - type: {} | lexeme: {s}\n", .{ tok.type, tok.lexeme });
     }
+
+    var parser = Parser.init(tokens);
+    var ast = try parser.parse();
+    var buffer: [1024]u8 = undefined;
+    var ast_print = astPrint(&ast, buffer[0..]);
+    print("{s}", .{ast_print});
 }
