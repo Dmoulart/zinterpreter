@@ -3,8 +3,9 @@ const Token = @import("../token.zig");
 const Expr = @import("../ast/expr.zig").Expr;
 const Self = @This();
 
-const ParseError = error{
-    Error,
+pub const ParseError = error{
+    MissingExpression,
+    MissingRightParen,
 };
 
 tokens: *std.ArrayList(Token),
@@ -16,138 +17,160 @@ pub fn init(tokens: *std.ArrayList(Token)) Self {
     };
 }
 
-pub fn parse(self: *Self) !Expr {
+pub fn parse(self: *Self) ParseError!Expr {
     return try self.expression();
 }
 
-fn expression(self: *Self) !Expr {
+fn expression(self: *Self) ParseError!Expr {
     return try self.equality();
 }
 
-fn equality(self: *Self) !Expr {
+fn equality(self: *Self) ParseError!Expr {
     var expr = try self.comparison();
 
-    while (self.match(.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
-        expr = Expr.Binary{
-            .left = &expr,
-            .op = self.previous(),
-            .right = self.comparison(),
+    while (self.match(&.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
+        expr = Expr{
+            .Binary = .{
+                .left = &expr,
+                .op = self.previous().*,
+                .right = &(try self.comparison()),
+            },
         };
     }
 
     return expr;
 }
 
-fn comparison(self: *Self) !Expr {
+fn comparison(self: *Self) ParseError!Expr {
     var expr = try self.term();
-    while (self.match(.{ .GREATER, .GREATER_EQUAL, .LESS, .LESS_EQUAL })) {
-        expr = Expr.Binary{
-            .left = &expr,
-            .op = self.previous(),
-            .right = self.term(),
+
+    while (self.match(&.{ .GREATER, .GREATER_EQUAL, .LESS, .LESS_EQUAL })) {
+        expr = Expr{
+            .Binary = .{
+                .left = &expr,
+                .op = self.previous().*,
+                .right = &(try self.term()),
+            },
         };
     }
     return expr;
 }
 
-fn term(self: *Self) !Expr {
+fn term(self: *Self) ParseError!Expr {
     var expr = try self.factor();
-    while (self.match(.{ .MINUS, .PLUS })) {
-        expr = Expr.Binary{
-            .left = &expr,
-            .op = self.previous(),
-            .right = self.term(),
+
+    while (self.match(&.{ .MINUS, .PLUS })) {
+        expr = .{
+            .Binary = .{
+                .left = &expr,
+                .op = self.previous().*,
+                .right = &(try self.term()),
+            },
         };
     }
+
     return expr;
 }
 
-fn factor(self: *Self) !Expr {
+fn factor(self: *Self) ParseError!Expr {
     var expr = try self.unary();
-    while (self.match(.{ .SLASH, .STAR })) {
-        expr = Expr.Binary{
-            .left = &expr,
-            .op = self.previous(),
-            .right = self.term(),
+    while (self.match(&.{ .SLASH, .STAR })) {
+        expr = Expr{
+            .Binary = .{
+                .left = &expr,
+                .op = self.previous().*,
+                .right = &(try self.term()),
+            },
         };
     }
     return expr;
 }
 
-fn unary(self: *Self) !Expr {
-    if (self.match(.{ .BANG, .MINUS })) {
-        return Expr.Unary{
-            .op = self.previous(),
-            .right = self.term(),
+fn unary(self: *Self) ParseError!Expr {
+    if (self.match(&.{ .BANG, .MINUS })) {
+        return .{
+            .Unary = .{
+                .op = self.previous().*,
+                .right = &(try self.term()),
+            },
         };
     }
+
     return try self.primary();
 }
 
 fn match(self: *Self, comptime types: anytype) bool {
-    inline for (types) |tok_type| {
-        if (self.check(tok_type)) {
+    inline for (types.*) |*tok_type| {
+        if (self.check(@as(Token.Tokens, tok_type.*))) {
             _ = self.advance();
             return true;
         }
     }
-    // for (types) |tok_type| {
-    //     if (self.check(tok_type)) {
-    //         _ = self.advance();
-    //         return true;
-    //     }
-    // }
 
     return false;
 }
 
 fn primary(self: *Self) !Expr {
     if (self.match(&.{.FALSE})) {
-        return Expr.Literal{
-            .value = .{ .String = "false" },
+        return .{
+            .Literal = .{
+                .value = .{ .String = "false" },
+            },
         };
     }
 
     if (self.match(&.{.TRUE})) {
-        return Expr.Literal{
-            .value = .{ .String = "true" },
+        return .{
+            .Literal = .{
+                .value = .{ .String = "true" },
+            },
         };
     }
 
     if (self.match(&.{.NIL})) {
-        return Expr.Literal{
-            .value = .{ .String = "null" },
+        return .{
+            .Literal = .{
+                .value = .{ .String = "null" },
+            },
         };
     }
 
-    // if (self.match(&.{.NUMBER})) {
-    //     return Expr.Literal{
-    //         .value = .{ .Number = self.previous() },
-    //     };
-    // }
+    if (self.match(&.{.NUMBER})) {
+        return .{
+            .Literal = .{
+                .value = .{ .Float = self.previous().type.NUMBER },
+            },
+        };
+    }
 
-    // if (self.match(&.{.String})) {
-    //     return Expr.Literal{
-    //         .value = .{ .Number = self.previous() },
-    //     };
-    // }
-
-    // ...
+    if (self.match(&.{.STRING})) {
+        return .{
+            .Literal = .{
+                .value = .{ .String = self.previous().type.STRING },
+            },
+        };
+    }
 
     if (self.match(&.{.LEFT_PAREN})) {
-        var expr = self.expression();
-        // consume(RIGHT_PAREN, "Expect ')' after expression.");
-        _ = self.consume(.RIGHT_PAREN, "Expect ) after expression") catch "err";
-        return Expr.Grouping{
-            .expr = &expr,
+        var expr = try self.expression();
+
+        _ = try self.consume(
+            .RIGHT_PAREN,
+            ParseError.MissingRightParen,
+            "Expect ) after expression",
+        );
+
+        return .{
+            .Grouping = .{
+                .expr = &expr,
+            },
         };
     }
 
-    // "Expect expression."
-    return ParseError.Error;
+    return ParseError.MissingExpression;
 }
 
-fn synchronize(self: *Self) !void {
+fn synchronize(self: *Self) ParseError!void {
     _ = self.advance();
 
     while (!self.isAtEnd()) {
@@ -168,26 +191,26 @@ fn synchronize(self: *Self) !void {
     }
 }
 
-fn check(self: *Self, tok_type: Token.Type) bool {
+fn check(self: *Self, tok_type: Token.Tokens) bool {
     if (self.isAtEnd()) return false;
-    // err : replace this crap by real enum member comparison
-    return std.mem.eql(u8, @tagName(tok_type), @tagName(self.peek().type));
-    // return @intToEnum(Token.Type, self.peek().type) == @intToEnum(Token.Type, tok_type);
+
+    return tok_type == @as(Token.Tokens, self.peek().type);
 }
 
 fn advance(self: *Self) *Token {
     if (!self.isAtEnd()) {
         self.current += 1;
     }
+
     return self.previous();
 }
 
-fn consume(self: *Self, tok_type: Token.Type, msg: []const u8) !Token {
+fn consume(self: *Self, tok_type: Token.Type, parse_err: ParseError, msg: []const u8) ParseError!*Token {
     if (self.check(tok_type)) return self.advance();
 
-    std.debug.print("{}", .{msg});
+    std.debug.print("{s}", .{msg});
 
-    return ParseError.Error;
+    return parse_err;
 }
 
 fn isAtEnd(self: *Self) bool {

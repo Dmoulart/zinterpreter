@@ -44,7 +44,7 @@ pub fn main2() !void {
     };
     var buffer: [1024]u8 = undefined;
     var ast_print = astPrint(&expr, buffer[0..]);
-    print("{s}", .{ast_print});
+    print("\nastprint : {s}\n", .{ast_print});
 }
 
 pub fn main() !void {
@@ -96,6 +96,7 @@ fn runPrompt() !void {
 
 fn run(src: []const u8) !void {
     var lexer = Lexer.init(src, std.heap.page_allocator);
+
     var tokens = try lexer.scan();
 
     for (tokens.items) |tok| {
@@ -103,8 +104,17 @@ fn run(src: []const u8) !void {
     }
 
     var parser = Parser.init(tokens);
-    var ast = try parser.parse();
-    var buffer: [1024]u8 = undefined;
-    var ast_print = astPrint(&ast, buffer[0..]);
-    print("{s}", .{ast_print});
+
+    if (parser.parse()) |ast| {
+        print("\n ast : {any} \n", .{ast});
+
+        var buffer: [1024]u8 = undefined;
+
+        var ast_print = astPrint(&ast, buffer[0..]);
+
+        print("\n ast_print : {s} \n", .{ast_print});
+    } else |err| switch (err) {
+        Parser.ParseError.MissingExpression => print("\nMissing expression", .{}),
+        Parser.ParseError.MissingRightParen => print("\nMissing right parenthesis", .{}),
+    }
 }

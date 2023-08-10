@@ -5,7 +5,56 @@ type: Type,
 lexeme: []const u8,
 line: u32,
 
-pub const Type = union(enum) {
+pub const Tokens = enum {
+    // Single-character tokens.
+    LEFT_PAREN,
+    RIGHT_PAREN,
+    LEFT_BRACE,
+    RIGHT_BRACE,
+    COMMA,
+    DOT,
+    MINUS,
+    PLUS,
+    SEMICOLON,
+    SLASH,
+    STAR,
+
+    // One or two character tokens.
+    BANG,
+    BANG_EQUAL,
+    EQUAL,
+    EQUAL_EQUAL,
+    GREATER,
+    GREATER_EQUAL,
+    LESS,
+    LESS_EQUAL,
+
+    // Literals.
+    IDENTIFIER,
+    STRING,
+    NUMBER,
+
+    // Keywords.
+    AND,
+    CLASS,
+    ELSE,
+    FALSE,
+    FUN,
+    FOR,
+    IF,
+    NIL,
+    OR,
+    PRINT,
+    RETURN,
+    SUPER,
+    THIS,
+    TRUE,
+    VAR,
+    WHILE,
+    EOF,
+};
+
+pub const Type = union(Tokens) {
     // Single-character tokens.
     LEFT_PAREN,
     RIGHT_PAREN,
