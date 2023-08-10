@@ -99,7 +99,7 @@ fn run(src: []const u8) !void {
 
     var tokens = try lexer.scan();
 
-    for (tokens.items) |tok| {
+    for (tokens) |tok| {
         print("\n - type: {} | lexeme: {s}\n", .{ tok.type, tok.lexeme });
     }
 

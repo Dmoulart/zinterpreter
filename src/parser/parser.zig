@@ -9,10 +9,10 @@ pub const ParseError = error{
     MissingRightParen,
 };
 
-tokens: *std.ArrayList(Token),
+tokens: []Token,
 current: u32 = 0,
 
-pub fn init(tokens: *std.ArrayList(Token)) Self {
+pub fn init(tokens: []Token) Self {
     return Self{
         .tokens = tokens,
     };
@@ -220,9 +220,9 @@ fn isAtEnd(self: *Self) bool {
 }
 
 fn peek(self: *Self) *Token {
-    return &self.tokens.items[self.current];
+    return &self.tokens[self.current];
 }
 
 fn previous(self: *Self) *Token {
-    return &self.tokens.items[self.current - 1];
+    return &self.tokens[self.current - 1];
 }

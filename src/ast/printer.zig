@@ -15,7 +15,7 @@ pub fn print(expr: *const Expr, buf: []u8) []const u8 {
 pub fn printBinary(expr: *const Expr.Binary, buf: []u8) ![]const u8 {
     return try parenthesize(
         expr.op.lexeme,
-        &[_]*const Expr{ expr.left, expr.right },
+        &.{ expr.left, expr.right },
         buf,
     );
 }
@@ -23,7 +23,7 @@ pub fn printBinary(expr: *const Expr.Binary, buf: []u8) ![]const u8 {
 pub fn printGrouping(expr: *const Expr.Grouping, buf: []u8) ![]const u8 {
     return try parenthesize(
         "Group",
-        &[_]*const Expr{expr.expr},
+        &.{expr.expr},
         buf,
     );
 }
@@ -38,14 +38,14 @@ pub fn printLiteral(expr: *const Expr.Literal, buf: []u8) ![]const u8 {
 pub fn printUnary(expr: *const Expr.Unary, buf: []u8) ![]const u8 {
     return try parenthesize(
         expr.op.lexeme,
-        &[_]*const Expr{
+        &.{
             expr.right,
         },
         buf,
     );
 }
 
-fn parenthesize(name: []const u8, exprs: []*const Expr, buf: []u8) ![]const u8 {
+fn parenthesize(name: []const u8, exprs: []const *const Expr, buf: []u8) ![]const u8 {
     var str = std.ArrayList(u8).init(std.heap.page_allocator);
 
     const inner = for (exprs) |expr|

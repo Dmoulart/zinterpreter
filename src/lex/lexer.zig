@@ -25,7 +25,7 @@ pub fn init(src: []const u8, allocator: std.mem.Allocator) Self {
     };
 }
 
-pub fn scan(self: *Self) !*ArrayList(Token) {
+pub fn scan(self: *Self) ![]Token {
     while (!self.isAtEnd()) {
         self.start = self.current;
         try self.scanToken();
@@ -37,7 +37,9 @@ pub fn scan(self: *Self) !*ArrayList(Token) {
         .line = self.line,
     });
 
-    return &self.tokens;
+    // return &self.tokens;
+
+    return self.tokens.toOwnedSlice();
 }
 
 fn scanToken(self: *Self) !void {
