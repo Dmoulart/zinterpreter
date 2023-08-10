@@ -1,6 +1,7 @@
 const std = @import("std");
 const Token = @import("../token.zig");
 const Expr = @import("../ast/expr.zig").Expr;
+
 const Self = @This();
 
 pub const ParseError = error{
@@ -74,6 +75,7 @@ fn term(self: *Self) ParseError!Expr {
 
 fn factor(self: *Self) ParseError!Expr {
     var expr = try self.unary();
+
     while (self.match(&.{ .SLASH, .STAR })) {
         expr = Expr{
             .Binary = .{
@@ -193,7 +195,7 @@ fn synchronize(self: *Self) ParseError!void {
 
 fn check(self: *Self, tok_type: Token.Tokens) bool {
     if (self.isAtEnd()) return false;
-
+    std.debug.print("\n- tok_type {any} match peek {any} : {any}\n", .{ tok_type, self.peek(), tok_type == @as(Token.Tokens, self.peek().type) });
     return tok_type == @as(Token.Tokens, self.peek().type);
 }
 
