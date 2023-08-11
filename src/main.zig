@@ -103,18 +103,19 @@ fn run(src: []const u8) !void {
         print("\n - type: {} | lexeme: {s}\n", .{ tok.type, tok.lexeme });
     }
 
-    var parser = Parser.init(tokens);
+    var parser = Parser.init(tokens, std.heap.page_allocator);
 
     if (parser.parse()) |ast| {
         print("\n ast : {any} \n", .{ast});
 
         var buffer: [1024]u8 = undefined;
 
-        var ast_print = astPrint(&ast, buffer[0..]);
+        var ast_print = astPrint(ast, buffer[0..]);
 
         print("\n ast_print : {s} \n", .{ast_print});
     } else |err| switch (err) {
         Parser.ParseError.MissingExpression => print("\nMissing expression", .{}),
         Parser.ParseError.MissingRightParen => print("\nMissing right parenthesis", .{}),
+        Parser.ParseError.OutOfMemory => print("\nOut of memory", .{}),
     }
 }

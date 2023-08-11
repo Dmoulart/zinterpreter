@@ -5,6 +5,7 @@ const Expr = @import("../ast/expr.zig").Expr;
 const Self = @This();
 
 pub const ParseError = error{
+    OutOfMemory, // not a parse error i know...
     MissingExpression,
     MissingRightParen,
 };
@@ -12,90 +13,96 @@ pub const ParseError = error{
 tokens: []Token,
 current: u32 = 0,
 
-pub fn init(tokens: []Token) Self {
+allocator: std.mem.Allocator,
+
+exprs: std.ArrayList(Expr),
+
+pub fn init(tokens: []Token, allocator: std.mem.Allocator) Self {
     return Self{
         .tokens = tokens,
+        .allocator = allocator,
+        .exprs = std.ArrayList(Expr).init(allocator),
     };
 }
 
-pub fn parse(self: *Self) ParseError!Expr {
+pub fn parse(self: *Self) ParseError!*Expr {
     return try self.expression();
 }
 
-fn expression(self: *Self) ParseError!Expr {
+fn expression(self: *Self) ParseError!*Expr {
     return try self.equality();
 }
 
-fn equality(self: *Self) ParseError!Expr {
+fn equality(self: *Self) ParseError!*Expr {
     var expr = try self.comparison();
 
     while (self.match(&.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
-        expr = Expr{
+        expr = try self.create(.{
             .Binary = .{
-                .left = &expr,
+                .left = expr,
                 .op = self.previous().*,
-                .right = &(try self.comparison()),
+                .right = (try self.comparison()),
             },
-        };
+        });
     }
 
     return expr;
 }
 
-fn comparison(self: *Self) ParseError!Expr {
+fn comparison(self: *Self) ParseError!*Expr {
     var expr = try self.term();
 
     while (self.match(&.{ .GREATER, .GREATER_EQUAL, .LESS, .LESS_EQUAL })) {
-        expr = Expr{
+        expr = try self.create(.{
             .Binary = .{
-                .left = &expr,
+                .left = expr,
                 .op = self.previous().*,
-                .right = &(try self.term()),
+                .right = (try self.term()),
             },
-        };
+        });
     }
     return expr;
 }
 
-fn term(self: *Self) ParseError!Expr {
+fn term(self: *Self) ParseError!*Expr {
     var expr = try self.factor();
 
     while (self.match(&.{ .MINUS, .PLUS })) {
-        expr = .{
+        expr = try self.create(.{
             .Binary = .{
-                .left = &expr,
+                .left = expr,
                 .op = self.previous().*,
-                .right = &(try self.term()),
+                .right = (try self.term()),
             },
-        };
+        });
     }
 
     return expr;
 }
 
-fn factor(self: *Self) ParseError!Expr {
+fn factor(self: *Self) ParseError!*Expr {
     var expr = try self.unary();
 
     while (self.match(&.{ .SLASH, .STAR })) {
-        expr = Expr{
+        expr = try self.create(.{
             .Binary = .{
-                .left = &expr,
+                .left = expr,
                 .op = self.previous().*,
-                .right = &(try self.term()),
+                .right = (try self.term()),
             },
-        };
+        });
     }
     return expr;
 }
 
-fn unary(self: *Self) ParseError!Expr {
+fn unary(self: *Self) ParseError!*Expr {
     if (self.match(&.{ .BANG, .MINUS })) {
-        return .{
+        return try self.create(.{
             .Unary = .{
                 .op = self.previous().*,
-                .right = &(try self.term()),
+                .right = (try self.term()),
             },
-        };
+        });
     }
 
     return try self.primary();
@@ -112,45 +119,47 @@ fn match(self: *Self, comptime types: anytype) bool {
     return false;
 }
 
-fn primary(self: *Self) !Expr {
+fn primary(self: *Self) !*Expr {
     if (self.match(&.{.FALSE})) {
-        return .{
+        return try self.create(.{
             .Literal = .{
                 .value = .{ .String = "false" },
             },
-        };
+        });
     }
 
     if (self.match(&.{.TRUE})) {
-        return .{
+        return try self.create(.{
             .Literal = .{
                 .value = .{ .String = "true" },
             },
-        };
+        });
     }
 
     if (self.match(&.{.NIL})) {
-        return .{
+        return try self.create(.{
             .Literal = .{
                 .value = .{ .String = "null" },
             },
-        };
+        });
     }
 
     if (self.match(&.{.NUMBER})) {
-        return .{
+        return try self.create(.{
             .Literal = .{
                 .value = .{ .Float = self.previous().type.NUMBER },
             },
-        };
+        });
     }
 
     if (self.match(&.{.STRING})) {
-        return .{
+        return try self.create(.{
             .Literal = .{
-                .value = .{ .String = self.previous().type.STRING, },
+                .value = .{
+                    .String = self.previous().type.STRING,
+                },
             },
-        };
+        });
     }
 
     if (self.match(&.{.LEFT_PAREN})) {
@@ -161,15 +170,35 @@ fn primary(self: *Self) !Expr {
             ParseError.MissingRightParen,
             "Expect ) after expression",
         );
+        // var ptr = self.allocator.create(Expr);
+        // ptr.* = .{
+        //     .Grouping = .{
+        //         .expr = &expr,
+        //     },
+        // };
 
-        return .{
+        return try self.create(.{
             .Grouping = .{
-                .expr = &expr,
+                .expr = expr,
             },
-        };
+        });
+
+        // var ptr = self.exprs.addOne();
+        // ptr.* = .{
+        //     .Grouping = .{
+        //         .expr = expr,
+        //     },
+        // };
+        // return ptr;
     }
 
     return ParseError.MissingExpression;
+}
+
+fn create(self: *Self, expr: anytype) std.mem.Allocator.Error!*Expr {
+    var ptr = self.exprs.addOne() catch return ParseError.OutOfMemory;
+    ptr.* = expr;
+    return ptr;
 }
 
 fn synchronize(self: *Self) ParseError!void {
