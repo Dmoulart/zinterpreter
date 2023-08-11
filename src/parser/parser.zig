@@ -148,7 +148,7 @@ fn primary(self: *Self) !Expr {
     if (self.match(&.{.STRING})) {
         return .{
             .Literal = .{
-                .value = .{ .String = self.previous().type.STRING },
+                .value = .{ .String = self.previous().type.STRING, },
             },
         };
     }

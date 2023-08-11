@@ -17,7 +17,7 @@ pub const Expr = union(enum) {
     };
 
     pub const Literal = struct {
-        pub const Value = union(enum) {
+        const Value = union(enum) {
             String: []const u8,
             Integer: i64,
             Float: f64,
