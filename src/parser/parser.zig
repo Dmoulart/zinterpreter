@@ -164,10 +164,10 @@ fn primary(self: *Self) !*Expr {
             },
         });
     }
-
+    std.debug.print("\nmatch left paren peek {}\n", .{self.peek()});
     if (self.match(&.{.LEFT_PAREN})) {
         var expr = try self.expression();
-
+        std.debug.print("left paren", .{});
         _ = try self.consume(
             .RIGHT_PAREN,
             ParseError.MissingRightParen,
@@ -181,6 +181,7 @@ fn primary(self: *Self) !*Expr {
         });
     }
 
+    std.debug.print("Missing expression", .{});
     return ParseError.MissingExpression;
 }
 
