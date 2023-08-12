@@ -25,6 +25,10 @@ pub fn init(src: []const u8, allocator: std.mem.Allocator) Self {
     };
 }
 
+pub fn deinit(self: *Self) void {
+    self.tokens.deinit();
+}
+
 pub fn scan(self: *Self) ![]Token {
     while (!self.isAtEnd()) {
         self.start = self.current;
@@ -37,9 +41,7 @@ pub fn scan(self: *Self) ![]Token {
         .line = self.line,
     });
 
-    // return &self.tokens;
-
-    return self.tokens.toOwnedSlice();
+    return self.tokens.items;
 }
 
 fn scanToken(self: *Self) !void {
@@ -93,11 +95,11 @@ fn scanToken(self: *Self) !void {
     }
 }
 
-fn addToken(self: *Self, tok_type: Token.Type) !void {
+fn addToken(self: *Self, token_type: Token.Type) !void {
     var text = self.src[self.start..self.current];
 
     try self.tokens.append(.{
-        .type = tok_type,
+        .type = token_type,
         .lexeme = text,
         .line = self.line,
     });
@@ -202,4 +204,23 @@ fn readIdentifier(self: *Self) Token.Type {
 
 fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
+}
+
+fn expectTokenSequence(seq: []const Token.Tokens, tokens: []Token) !void {
+    if (seq.len == tokens.len) {
+        for (seq, 0..) |token_type, i| {
+            if (tokens[i].type != @as(Token.Tokens, token_type)) break;
+        } else return;
+    }
+    return error.TestUnexpectedResult;
+}
+
+const expect = std.testing.expect;
+test "can run" {
+    var lexer = init("var ok = \"test\"", std.testing.allocator);
+
+    var tokens = try lexer.scan();
+    defer lexer.deinit();
+
+    try expectTokenSequence(&.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF }, tokens);
 }

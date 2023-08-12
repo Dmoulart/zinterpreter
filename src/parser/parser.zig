@@ -1,4 +1,5 @@
 const std = @import("std");
+const report = @import("../error-reporter.zig").report;
 const Token = @import("../token.zig");
 const Expr = @import("../ast/expr.zig").Expr;
 
@@ -23,6 +24,10 @@ pub fn init(tokens: []Token, allocator: std.mem.Allocator) Self {
         .allocator = allocator,
         .exprs = std.ArrayList(Expr).init(allocator),
     };
+}
+
+pub fn deinit(self: *Self) void {
+    self.exprs.deinit();
 }
 
 pub fn parse(self: *Self) ParseError!*Expr {
@@ -109,8 +114,8 @@ fn unary(self: *Self) ParseError!*Expr {
 }
 
 fn match(self: *Self, comptime types: anytype) bool {
-    inline for (types.*) |*tok_type| {
-        if (self.check(@as(Token.Tokens, tok_type.*))) {
+    inline for (types.*) |*token_type| {
+        if (self.check(@as(Token.Tokens, token_type.*))) {
             _ = self.advance();
             return true;
         }
@@ -170,26 +175,12 @@ fn primary(self: *Self) !*Expr {
             ParseError.MissingRightParen,
             "Expect ) after expression",
         );
-        // var ptr = self.allocator.create(Expr);
-        // ptr.* = .{
-        //     .Grouping = .{
-        //         .expr = &expr,
-        //     },
-        // };
 
         return try self.create(.{
             .Grouping = .{
                 .expr = expr,
             },
         });
-
-        // var ptr = self.exprs.addOne();
-        // ptr.* = .{
-        //     .Grouping = .{
-        //         .expr = expr,
-        //     },
-        // };
-        // return ptr;
     }
 
     return ParseError.MissingExpression;
@@ -222,10 +213,16 @@ fn synchronize(self: *Self) ParseError!void {
     }
 }
 
-fn check(self: *Self, tok_type: Token.Tokens) bool {
+fn check(self: *Self, token_type: Token.Tokens) bool {
     if (self.isAtEnd()) return false;
-    std.debug.print("\n- tok_type {any} match peek {any} : {any}\n", .{ tok_type, self.peek(), tok_type == @as(Token.Tokens, self.peek().type) });
-    return tok_type == @as(Token.Tokens, self.peek().type);
+    // std.debug.print(
+    //     "\n- token_type {any} match peek {any} : {any}\n",
+    //     .{ token_type, self.peek(), token_type == @as(
+    //         Token.Tokens,
+    //         self.peek().type,
+    //     ) },
+    // );
+    return token_type == @as(Token.Tokens, self.peek().type);
 }
 
 fn advance(self: *Self) *Token {
@@ -236,10 +233,11 @@ fn advance(self: *Self) *Token {
     return self.previous();
 }
 
-fn consume(self: *Self, tok_type: Token.Type, parse_err: ParseError, msg: []const u8) ParseError!*Token {
-    if (self.check(tok_type)) return self.advance();
+fn consume(self: *Self, token_type: Token.Type, parse_err: ParseError, comptime msg: []const u8) ParseError!*Token {
+    if (self.check(token_type)) return self.advance();
 
-    std.debug.print("{s}", .{msg});
+    var curr_tok = self.peek();
+    report(curr_tok.line, curr_tok.lexeme, msg);
 
     return parse_err;
 }
