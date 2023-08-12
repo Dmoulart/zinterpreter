@@ -114,8 +114,8 @@ fn unary(self: *Self) ParseError!*Expr {
 }
 
 fn match(self: *Self, comptime types: anytype) bool {
-    inline for (types.*) |*token_type| {
-        if (self.check(@as(Token.Tokens, token_type.*))) {
+    inline for (types) |token_type| {
+        if (self.check(@as(Token.Tokens, token_type))) {
             _ = self.advance();
             return true;
         }

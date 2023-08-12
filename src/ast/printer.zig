@@ -51,7 +51,7 @@ fn parenthesize(name: []const u8, exprs: []const *const Expr, buf: []u8) ![]cons
     const inner = for (exprs) |expr|
         try str.appendSlice(print(expr, buf))
     else
-        str.toOwnedSlice();
+        try str.toOwnedSlice();
 
     return try std.fmt.bufPrintZ(buf, "({s} {s})", .{ name, inner });
 }
