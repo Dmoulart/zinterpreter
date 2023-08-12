@@ -1,6 +1,6 @@
 const std = @import("std");
-const report = @import("../error-reporter.zig").report;
-const Token = @import("../token.zig");
+const report = @import("./error-reporter.zig").report;
+const Token = @import("./token.zig");
 const ArrayList = @import("std").ArrayList;
 const ComptimeStringMap = @import("std").ComptimeStringMap;
 const isAlphanumeric = std.ascii.isAlphanumeric;
@@ -206,20 +206,40 @@ fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
 }
 
-fn expectTokenSequence(comptime expected: []const Token.Tokens, tokens: []Token) !void {
+fn expectTokenSequence(comptime expected: []const Token.Tokens, comptime src: []const u8) !void {
+    var lexer = init(src, std.testing.allocator);
+    var tokens = try lexer.scan();
+    defer lexer.deinit();
+    return expectTokenSequenceFromTokens(expected, tokens);
+}
+
+fn expectTokenSequenceFromTokens(comptime expected: []const Token.Tokens, tokens: []Token) !void {
     return for (expected, tokens) |expected_token, actual_token| {
-        if (@as(Token.Tokens, actual_token) != expected_token) {
+        if (@as(Token.Tokens, actual_token.type) != expected_token) {
             break error.TestUnexpectedResult;
         }
     };
 }
 
 const expect = std.testing.expect;
-test "can run" {
-    var lexer = init("var ok = \"test\"", std.testing.allocator);
 
-    var tokens = try lexer.scan();
-    defer lexer.deinit();
+test "can scan simple code" {
+    try expectTokenSequence(
+        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF },
+        "var ok = \"test\";",
+    );
+}
 
-    try expectTokenSequence(&.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF }, tokens);
+test "can skip single line comments" {
+    try expectTokenSequence(
+        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF },
+        "// Hey I'm Commenty McCommentFace \n var ok =\"test\"",
+    );
+}
+
+test "can skip multi line comments" {
+    try expectTokenSequence(
+        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF },
+        "/* Hey I'm Commenty /* nested comment */ McCommentFace */ \n var ok =\"test\"",
+    );
 }

@@ -9,7 +9,7 @@ pub fn print(expr: *const Expr, buf: []u8) []const u8 {
         inline .Grouping => |*val| printGrouping(val, buf),
         inline .Literal => |*val| printLiteral(val, buf),
         inline .Unary => |*val| printUnary(val, buf),
-    } catch "Print error";
+    } catch "AST_Printer error";
 }
 
 pub fn printBinary(expr: *const Expr.Binary, buf: []u8) ![]const u8 {

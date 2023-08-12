@@ -2,7 +2,7 @@ const std = @import("std");
 const fs = std.fs;
 const io = std.io;
 const print = std.debug.print;
-const Lexer = @import("./lex/lexer.zig");
+const Lexer = @import("./lexer.zig");
 const Parser = @import("./parser/parser.zig");
 
 const Expr = @import("./ast/expr.zig").Expr;
@@ -71,14 +71,9 @@ fn run(src: []const u8) !void {
         var buffer: [1024]u8 = undefined;
 
         var ast_print = astPrint(ast, buffer[0..]);
-        _ = ast_print;
 
-        // print("\n ast_print : {s} \n", .{ast_print});
+        print("\n ast_print : {s} \n", .{ast_print});
     } else |_| return;
-}
-
-comptime {
-    _ = @import("./lex/lexer.zig");
 }
 
 // pub fn main2() !void {
