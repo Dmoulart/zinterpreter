@@ -206,7 +206,7 @@ fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
 }
 
-fn expectTokenSequence(seq: []const Token.Tokens, tokens: []Token) !void {
+fn expectTokenSequence(comptime seq: []const Token.Tokens, tokens: []Token) !void {
     if (seq.len == tokens.len) {
         for (seq, 0..) |token_type, i| {
             if (tokens[i].type != @as(Token.Tokens, token_type)) break;

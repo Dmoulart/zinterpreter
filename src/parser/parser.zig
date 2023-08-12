@@ -114,14 +114,12 @@ fn unary(self: *Self) ParseError!*Expr {
 }
 
 fn match(self: *Self, comptime types: anytype) bool {
-    inline for (types) |token_type| {
+    return inline for (types) |token_type| {
         if (self.check(@as(Token.Tokens, token_type))) {
             _ = self.advance();
-            return true;
+            break true;
         }
-    }
-
-    return false;
+    } else false;
 }
 
 fn primary(self: *Self) !*Expr {
@@ -226,13 +224,13 @@ fn advance(self: *Self) *Token {
     return self.previous();
 }
 
-fn consume(self: *Self, token_type: Token.Type, parse_err: ParseError, comptime msg: []const u8) ParseError!*Token {
+fn consume(self: *Self, token_type: Token.Type, parse_error: ParseError, comptime msg: []const u8) ParseError!*Token {
     if (self.check(token_type)) return self.advance();
 
-    var curr_tok = self.peek();
-    report(curr_tok.line, curr_tok.lexeme, msg);
+    var current_token = self.peek();
+    report(current_token.line, current_token.lexeme, msg);
 
-    return parse_err;
+    return parse_error;
 }
 
 fn isAtEnd(self: *Self) bool {
