@@ -206,13 +206,12 @@ fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
 }
 
-fn expectTokenSequence(comptime seq: []const Token.Tokens, tokens: []Token) !void {
-    if (seq.len == tokens.len) {
-        for (seq, 0..) |token_type, i| {
-            if (tokens[i].type != @as(Token.Tokens, token_type)) break;
-        } else return;
-    }
-    return error.TestUnexpectedResult;
+fn expectTokenSequence(comptime expected: []const Token.Tokens, tokens: []Token) !void {
+    return for (expected, tokens) |expected_token, actual_token| {
+        if (@as(Token.Tokens, actual_token) != expected_token) {
+            break error.TestUnexpectedResult;
+        }
+    };
 }
 
 const expect = std.testing.expect;
