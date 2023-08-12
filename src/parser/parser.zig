@@ -215,13 +215,6 @@ fn synchronize(self: *Self) ParseError!void {
 
 fn check(self: *Self, token_type: Token.Tokens) bool {
     if (self.isAtEnd()) return false;
-    // std.debug.print(
-    //     "\n- token_type {any} match peek {any} : {any}\n",
-    //     .{ token_type, self.peek(), token_type == @as(
-    //         Token.Tokens,
-    //         self.peek().type,
-    //     ) },
-    // );
     return token_type == @as(Token.Tokens, self.peek().type);
 }
 

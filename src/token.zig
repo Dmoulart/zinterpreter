@@ -102,9 +102,9 @@ pub const Type = union(Tokens) {
     WHILE,
     EOF,
 
-    pub fn is(self: @This(), b: Type) bool {
-        return @as(Tokens, self) == @as(Tokens, b);
-    }
+    // pub fn is(self: @This(), b: Tokens) bool {
+    //     return @as(Tokens, self) == b;
+    // }
 };
 
 const keywords = std.ComptimeStringMap(Type, .{
