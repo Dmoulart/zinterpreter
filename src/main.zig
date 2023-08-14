@@ -75,9 +75,12 @@ fn run(src: []const u8) !void {
 
         print("\n ast_print : {s} \n", .{ast_print});
 
-        _ = interpret(ast) catch null;
+        _ = interpret(ast) catch {
+            std.os.exit(70);
+        };
     } else |_| {
         print("\n Exit after error \n", .{});
+        std.os.exit(65);
         return;
     }
 }
