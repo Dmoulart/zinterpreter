@@ -30,7 +30,7 @@ pub fn interpret(expr: *const Expr) RuntimeError!Value {
 fn eval(expr: *const Expr) RuntimeError!Value {
     return switch (expr.*) {
         .Literal => |*lit| literalCast(lit),
-        .Grouping => try eval(expr),
+        .Grouping => |*group| try eval(group.expr),
         .Unary => |*unary| {
             var right = try eval(unary.right);
 
@@ -98,28 +98,6 @@ fn literalCast(lit: *const Expr.Literal) Value {
     };
 }
 
-// fn eval(expr: *const Expr) void {
-//     var val = switch (expr.*) {
-//         // inline .Literal => |*lit| switch (lit.*) {
-//         //     .Integer => |int| int,
-//         //     .Float => |float| float,
-//         //     .String => |str| str,
-//         // },
-//         inline .Literal => |*lit| lit,
-//         inline .Grouping => |*group| eval(group),
-//         inline .Unary => |*unary| {
-//             var right = eval(unary.right);
-//             return switch (unary.*.op.type) {
-//                 .BANG => !isTruthy(right),
-//                 .MINUS => -right,
-//                 else => null,
-//             };
-//         },
-//         else => null,
-//     };
-//     _ = val;
-// }
-
 fn isEqual(a: Value, b: Value) bool {
     if (@as(Values, a) != @as(Values, b)) return false;
 
@@ -150,8 +128,7 @@ fn checkNumberOperand(operator: Token, operand: Value) RuntimeError!void {
 }
 
 fn checkNumberOperands(operator: Token, left: Value, right: Value) RuntimeError!void {
-    _ = right;
-    if (@as(Values, left) != Values.Number or @as(Values, left) != Values.Number) {
+    if (@as(Values, left) != Values.Number or @as(Values, right) != Values.Number) {
         report(operator.line, "", "Operands must be numbers");
         return RuntimeError.WrongOperandType;
     }
