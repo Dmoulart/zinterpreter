@@ -3,7 +3,7 @@ const fs = std.fs;
 const io = std.io;
 const print = std.debug.print;
 const Lexer = @import("./lexer.zig");
-const Parser = @import("./parser/parser.zig");
+const Parser = @import("./parser.zig");
 
 const Expr = @import("./ast/expr.zig").Expr;
 const Tok = @import("./token.zig");

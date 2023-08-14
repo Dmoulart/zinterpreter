@@ -214,6 +214,8 @@ fn expectTokenSequence(comptime expected: []const Token.Tokens, comptime src: []
 }
 
 fn expectTokenSequenceFromTokens(comptime expected: []const Token.Tokens, tokens: []Token) !void {
+    if (expected.len != tokens.len) return error.TestUnexpectedResult;
+
     return for (expected, tokens) |expected_token, actual_token| {
         if (@as(Token.Tokens, actual_token.type) != expected_token) {
             break error.TestUnexpectedResult;
@@ -225,21 +227,21 @@ const expect = std.testing.expect;
 
 test "can scan simple code" {
     try expectTokenSequence(
-        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF },
+        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .SEMICOLON, .EOF },
         "var ok = \"test\";",
     );
 }
 
 test "can skip single line comments" {
     try expectTokenSequence(
-        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF },
-        "// Hey I'm Commenty McCommentFace \n var ok =\"test\"",
+        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .SEMICOLON, .EOF },
+        "// Hey I'm Commenty McCommentFace \n var ok =\"test\";",
     );
 }
 
-test "can skip multi line comments" {
+test "can skip nested multi line comments" {
     try expectTokenSequence(
-        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .EOF },
-        "/* Hey I'm Commenty /* nested comment */ McCommentFace */ \n var ok =\"test\"",
+        &.{ .VAR, .IDENTIFIER, .EQUAL, .STRING, .SEMICOLON, .EOF },
+        "/* Hey I'm Commenty /* nested comment */ McCommentFace */ \n var ok =\"test\";",
     );
 }

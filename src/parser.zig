@@ -1,12 +1,12 @@
 const std = @import("std");
-const report = @import("../error-reporter.zig").report;
-const Token = @import("../token.zig");
-const Expr = @import("../ast/expr.zig").Expr;
+const report = @import("./error-reporter.zig").report;
+const Token = @import("./token.zig");
+const Expr = @import("./ast/expr.zig").Expr;
 
 const Self = @This();
 
 pub const ParseError = error{
-    OutOfMemory, // not a parse error i know...
+    OutOfMemory,
     MissingExpression,
     MissingRightParen,
 };
@@ -242,11 +242,47 @@ fn previous(self: *Self) *Token {
 
 fn err(self: *Self, token: *Token, parse_error: ParseError, comptime msg: []const u8) ParseError {
     if (token.type == .EOF) {
-        report(token.line, "at end", msg);
+        report(token.line, "at end of file", msg);
     } else {
         var where = try std.fmt.allocPrint(self.allocator, "at {s}", .{token.lexeme});
         report(token.line, where, msg);
     }
 
     return parse_error;
+}
+
+const expect = std.testing.expect;
+
+test "can parse" {
+    var toks = [_]Token{
+        .{
+            .type = .{ .NUMBER = 100 },
+            .lexeme = "100",
+            .line = 1,
+        },
+        .{
+            .type = .STAR,
+            .lexeme = "*",
+            .line = 1,
+        },
+        .{
+            .type = .{ .NUMBER = 100 },
+            .lexeme = "100",
+            .line = 1,
+        },
+        .{
+            .type = .EOF,
+            .lexeme = "",
+            .line = 1,
+        },
+    };
+    var parser = init(&toks, std.testing.allocator);
+    defer parser.deinit();
+
+    var ast = try parser.parse();
+
+    try expect(switch (ast.*) {
+        .Binary => true,
+        else => false,
+    });
 }
