@@ -164,10 +164,8 @@ fn primary(self: *Self) !*Expr {
             },
         });
     }
-    std.debug.print("\nmatch left paren peek {}\n", .{self.peek()});
     if (self.match(&.{.LEFT_PAREN})) {
         var expr = try self.expression();
-        std.debug.print("left paren", .{});
         _ = try self.consume(
             .RIGHT_PAREN,
             ParseError.MissingRightParen,
@@ -181,8 +179,7 @@ fn primary(self: *Self) !*Expr {
         });
     }
 
-    std.debug.print("Missing expression", .{});
-    return ParseError.MissingExpression;
+    return self.err(self.peek(), ParseError.MissingExpression, "Missing expression");
 }
 
 fn create(self: *Self, expr: anytype) std.mem.Allocator.Error!*Expr {
@@ -228,10 +225,7 @@ fn advance(self: *Self) *Token {
 fn consume(self: *Self, token_type: Token.Type, parse_error: ParseError, comptime msg: []const u8) ParseError!*Token {
     if (self.check(token_type)) return self.advance();
 
-    var current_token = self.peek();
-    report(current_token.line, current_token.lexeme, msg);
-
-    return parse_error;
+    return self.err(self.peek(), parse_error, msg);
 }
 
 fn isAtEnd(self: *Self) bool {
@@ -244,4 +238,15 @@ fn peek(self: *Self) *Token {
 
 fn previous(self: *Self) *Token {
     return &self.tokens[self.current - 1];
+}
+
+fn err(self: *Self, token: *Token, parse_error: ParseError, comptime msg: []const u8) ParseError {
+    if (token.type == .EOF) {
+        report(token.line, "at end", msg);
+    } else {
+        var where = try std.fmt.allocPrint(self.allocator, "at {s}", .{token.lexeme});
+        report(token.line, where, msg);
+    }
+
+    return parse_error;
 }
