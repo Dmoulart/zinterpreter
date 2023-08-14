@@ -60,6 +60,8 @@ fn literalCast(lit: *const Expr.Literal) Value {
         .String => |str| .{ .String = str },
         .Integer => |int| .{ .Number = @as(f64, @floatFromInt(int)) },
         .Float => |float| .{ .Number = float },
+        .Nil => .{ .Nil = null },
+        .Boolean => |boolean| .{ .Boolean = boolean },
     };
 }
 

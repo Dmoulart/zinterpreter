@@ -21,6 +21,8 @@ pub const Expr = union(enum) {
             String: []const u8,
             Integer: i64,
             Float: f64,
+            Boolean: bool,
+            Nil: ?bool, // what type should we use to represent null values ?
         };
 
         value: Value,

@@ -126,7 +126,7 @@ fn primary(self: *Self) !*Expr {
     if (self.match(&.{.FALSE})) {
         return try self.create(.{
             .Literal = .{
-                .value = .{ .String = "false" },
+                .value = .{ .Boolean = false },
             },
         });
     }
@@ -134,7 +134,7 @@ fn primary(self: *Self) !*Expr {
     if (self.match(&.{.TRUE})) {
         return try self.create(.{
             .Literal = .{
-                .value = .{ .String = "true" },
+                .value = .{ .Boolean = true },
             },
         });
     }
@@ -142,7 +142,7 @@ fn primary(self: *Self) !*Expr {
     if (self.match(&.{.NIL})) {
         return try self.create(.{
             .Literal = .{
-                .value = .{ .String = "null" },
+                .value = .{ .Nil = null },
             },
         });
     }

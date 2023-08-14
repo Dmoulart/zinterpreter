@@ -30,8 +30,10 @@ pub fn printGrouping(expr: *const Expr.Grouping, buf: []u8) ![]const u8 {
 
 pub fn printLiteral(expr: *const Expr.Literal, buf: []u8) ![]const u8 {
     return switch (expr.value) {
-        inline .String => |val| val,
-        inline .Integer, .Float => |val| try std.fmt.bufPrintZ(buf, "{d}", .{val}),
+        inline .String => |str| str,
+        inline .Integer, .Float => |num| try std.fmt.bufPrintZ(buf, "{d}", .{num}),
+        inline .Boolean => |boolean| if (boolean) "true" else "false",
+        inline .Nil => "nil",
     };
 }
 
