@@ -8,6 +8,7 @@ const Parser = @import("./parser.zig");
 const Expr = @import("./ast/expr.zig").Expr;
 const Tok = @import("./token.zig");
 const astPrint = @import("./ast/printer.zig").print;
+const interpret = @import("./interpreter.zig").interpret;
 
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
@@ -73,7 +74,12 @@ fn run(src: []const u8) !void {
         var ast_print = astPrint(ast, buffer[0..]);
 
         print("\n ast_print : {s} \n", .{ast_print});
-    } else |_| return;
+
+        _ = interpret(ast);
+    } else |_| {
+        print("\n Exit after error \n", .{});
+        return;
+    }
 }
 
 // pub fn main2() !void {
