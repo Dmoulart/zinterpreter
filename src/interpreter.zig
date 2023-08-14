@@ -19,11 +19,22 @@ pub const Value = union(Values) {
     Boolean: bool,
     Number: f64,
     String: []const u8,
+
+    pub fn stringify(self: *Value, buf: []u8) []const u8 {
+        return switch (self.*) {
+            .Nil => "nil",
+            .Boolean => |boolean| if (boolean) "true" else "false",
+            .Number => |number| std.fmt.bufPrintZ(buf, "{d}", .{number}) catch "Number Printing Error",
+            .String => |string| string,
+        };
+    }
 };
 
 pub fn interpret(expr: *const Expr) RuntimeError!Value {
     var val = try eval(expr);
-    std.debug.print("\nval {}\n", .{val});
+    var buf: [1024]u8 = undefined;
+    std.debug.print("\nval {s}\n", .{val.stringify(&buf)});
+
     return val;
 }
 
