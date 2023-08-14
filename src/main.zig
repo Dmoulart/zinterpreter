@@ -75,7 +75,7 @@ fn run(src: []const u8) !void {
 
         print("\n ast_print : {s} \n", .{ast_print});
 
-        _ = interpret(ast);
+        _ = interpret(ast) catch null;
     } else |_| {
         print("\n Exit after error \n", .{});
         return;
