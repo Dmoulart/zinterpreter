@@ -47,6 +47,9 @@ fn execute(stmt: *const Stmt) !void {
         .Expr => |*expr| {
             _ = try eval(expr);
         },
+        .Var => {
+            std.debug.print("Var stmt !", .{});
+        },
     }
 }
 
@@ -108,6 +111,7 @@ fn eval(expr: *const Expr) RuntimeError!Value {
                 else => .{ .Nil = null }, // todo ?
             };
         },
+        .Variable => unreachable,
     };
 }
 
