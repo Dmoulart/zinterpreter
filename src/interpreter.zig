@@ -3,9 +3,16 @@ const Expr = @import("./ast/expr.zig").Expr;
 const Stmt = @import("./ast/stmt.zig").Stmt;
 const Token = @import("./token.zig");
 const report = @import("./error-reporter.zig").report;
+const Environment = @import("./environment.zig");
 
-const RuntimeError = error{
+const Self = @This();
+
+environment: Environment,
+
+pub const RuntimeError = error{
     WrongOperandType,
+    UndefinedVariable,
+    OutOfMemory,
 };
 
 pub const Values = enum {
@@ -31,34 +38,47 @@ pub const Value = union(Values) {
     }
 };
 
-pub fn interpret(stmts: []const Stmt) RuntimeError!void {
+pub fn init(allocator: std.mem.Allocator) Self {
+    return Self{
+        .environment = Environment.init(allocator),
+    };
+}
+
+pub fn interpret(self: *Self, stmts: []const Stmt) RuntimeError!void {
     for (stmts) |*stmt| {
-        _ = try execute(stmt);
+        _ = try self.execute(stmt);
     }
 }
 
-fn execute(stmt: *const Stmt) !void {
+fn execute(self: *Self, stmt: *const Stmt) !void {
     switch (stmt.*) {
         .Print => |*print| {
-            var val = try eval(print);
+            var val = try self.eval(print);
             var buf: [1024]u8 = undefined;
             std.debug.print("{s}", .{val.stringify(&buf)});
         },
         .Expr => |*expr| {
-            _ = try eval(expr);
+            _ = try self.eval(expr);
         },
-        .Var => {
-            std.debug.print("Var stmt !", .{});
+        .Var => |*var_stmt| {
+            var value: Value = if (var_stmt.initializer) |*initializer|
+                try self.eval(initializer)
+            else
+                .{ .Nil = null };
+
+            self.environment.define(var_stmt.name.lexeme, value) catch |err| switch (err) {
+                error.OutOfMemory => return RuntimeError.OutOfMemory,
+            };
         },
     }
 }
 
-fn eval(expr: *const Expr) RuntimeError!Value {
+fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
     return switch (expr.*) {
         .Literal => |*lit| literalCast(lit),
-        .Grouping => |*group| try eval(group.expr),
+        .Grouping => |*group| try self.eval(group.expr),
         .Unary => |*unary| {
-            var right = try eval(unary.right);
+            var right = try self.eval(unary.right);
 
             return switch (unary.op.type) {
                 .BANG => .{ .Boolean = !isTruthy(right) },
@@ -70,8 +90,8 @@ fn eval(expr: *const Expr) RuntimeError!Value {
             };
         },
         .Binary => |*binary| {
-            var left = try eval(binary.left);
-            var right = try eval(binary.right);
+            var left = try self.eval(binary.left);
+            var right = try self.eval(binary.right);
 
             return switch (binary.op.type) {
                 .EQUAL_EQUAL => .{ .Boolean = isEqual(left, right) },
@@ -111,7 +131,9 @@ fn eval(expr: *const Expr) RuntimeError!Value {
                 else => .{ .Nil = null }, // todo ?
             };
         },
-        .Variable => unreachable,
+        .Variable => |*var_expr| {
+            return (try self.environment.getOrFail(var_expr.name.lexeme)).*;
+        },
     };
 }
 
