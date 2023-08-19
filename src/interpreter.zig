@@ -49,13 +49,6 @@ fn execute(stmt: *const Stmt) !void {
         },
     }
 }
-// pub fn interpret(expr: *const Expr) RuntimeError!Value {
-//     var val = try eval(expr);
-//     var buf: [1024]u8 = undefined;
-//     std.debug.print("\nval {s}\n", .{val.stringify(&buf)});
-
-//     return val;
-// }
 
 fn eval(expr: *const Expr) RuntimeError!Value {
     return switch (expr.*) {
