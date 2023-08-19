@@ -5,7 +5,7 @@ type: Type,
 lexeme: []const u8,
 line: u32,
 
-pub const Tokens = enum {
+pub const Types = enum {
     // Single-character tokens.
     LEFT_PAREN,
     RIGHT_PAREN,
@@ -54,7 +54,7 @@ pub const Tokens = enum {
     EOF,
 };
 
-pub const Type = union(Tokens) {
+pub const Type = union(Types) {
     // Single-character tokens.
     LEFT_PAREN,
     RIGHT_PAREN,

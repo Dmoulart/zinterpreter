@@ -1,5 +1,6 @@
 const std = @import("std");
 const Expr = @import("./ast/expr.zig").Expr;
+const Stmt = @import("./ast/stmt.zig").Stmt;
 const Token = @import("./token.zig");
 const report = @import("./error-reporter.zig").report;
 
@@ -24,19 +25,37 @@ pub const Value = union(Values) {
         return switch (self.*) {
             .Nil => "nil",
             .Boolean => |boolean| if (boolean) "true" else "false",
-            .Number => |number| std.fmt.bufPrintZ(buf, "{d}", .{number}) catch "Number Printing Error",
+            .Number => |number| std.fmt.bufPrint(buf, "{d}", .{number}) catch "Number Printing Error",
             .String => |string| string,
         };
     }
 };
 
-pub fn interpret(expr: *const Expr) RuntimeError!Value {
-    var val = try eval(expr);
-    var buf: [1024]u8 = undefined;
-    std.debug.print("\nval {s}\n", .{val.stringify(&buf)});
-
-    return val;
+pub fn interpret(stmts: []const Stmt) RuntimeError!void {
+    for (stmts) |*stmt| {
+        _ = try execute(stmt);
+    }
 }
+
+fn execute(stmt: *const Stmt) !void {
+    switch (stmt.*) {
+        .Print => |*print| {
+            var val = try eval(print);
+            var buf: [1024]u8 = undefined;
+            std.debug.print("\n{s}", .{val.stringify(&buf)});
+        },
+        .Expr => |*expr| {
+            _ = try eval(expr);
+        },
+    }
+}
+// pub fn interpret(expr: *const Expr) RuntimeError!Value {
+//     var val = try eval(expr);
+//     var buf: [1024]u8 = undefined;
+//     std.debug.print("\nval {s}\n", .{val.stringify(&buf)});
+
+//     return val;
+// }
 
 fn eval(expr: *const Expr) RuntimeError!Value {
     return switch (expr.*) {

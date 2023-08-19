@@ -2,6 +2,7 @@ const std = @import("std");
 const report = @import("./error-reporter.zig").report;
 const Token = @import("./token.zig");
 const Expr = @import("./ast/expr.zig").Expr;
+const Stmt = @import("./ast/stmt.zig").Stmt;
 
 const Self = @This();
 
@@ -9,6 +10,7 @@ pub const ParseError = error{
     OutOfMemory,
     MissingExpression,
     MissingRightParen,
+    MissingSemiColonAfterValue,
 };
 
 tokens: []Token,
@@ -18,11 +20,14 @@ allocator: std.mem.Allocator,
 
 exprs: std.ArrayList(Expr),
 
+stmts: std.ArrayList(Stmt),
+
 pub fn init(tokens: []Token, allocator: std.mem.Allocator) Self {
     return Self{
         .tokens = tokens,
         .allocator = allocator,
         .exprs = std.ArrayList(Expr).init(allocator),
+        .stmts = std.ArrayList(Stmt).init(allocator),
     };
 }
 
@@ -30,12 +35,41 @@ pub fn deinit(self: *Self) void {
     self.exprs.deinit();
 }
 
-pub fn parse(self: *Self) ParseError!*Expr {
-    return try self.expression();
+pub fn parse(self: *Self) ParseError![]Stmt {
+    while (!self.isAtEnd()) {
+        _ = try self.statement();
+    }
+
+    return self.stmts.toOwnedSlice();
+}
+
+fn statement(self: *Self) ParseError!*Stmt {
+    if (self.match(&.{.PRINT})) return try self.printStatement();
+    return try self.expressionStatement();
+}
+
+fn printStatement(self: *Self) ParseError!*Stmt {
+    var value = try self.expression();
+    _ = try self.consume(
+        .SEMICOLON,
+        ParseError.MissingSemiColonAfterValue,
+        "Expect ';' after value.",
+    );
+    return try self.createStatement(.{ .Print = value.* });
 }
 
 fn expression(self: *Self) ParseError!*Expr {
     return try self.equality();
+}
+
+fn expressionStatement(self: *Self) ParseError!*Stmt {
+    var expr = try self.expression();
+    _ = try self.consume(
+        .SEMICOLON,
+        ParseError.MissingSemiColonAfterValue,
+        "Expect ';' after value.",
+    );
+    return try self.createStatement(.{ .Expr = expr.* });
 }
 
 fn equality(self: *Self) ParseError!*Expr {
@@ -113,9 +147,9 @@ fn unary(self: *Self) ParseError!*Expr {
     return try self.primary();
 }
 
-fn match(self: *Self, comptime types: anytype) bool {
+fn match(self: *Self, comptime types: []const Token.Types) bool {
     return inline for (types) |token_type| {
-        if (self.check(@as(Token.Tokens, token_type))) {
+        if (self.check(@as(Token.Types, token_type))) {
             _ = self.advance();
             break true;
         }
@@ -182,6 +216,12 @@ fn primary(self: *Self) !*Expr {
     return self.err(self.peek(), ParseError.MissingExpression, "Missing expression");
 }
 
+fn createStatement(self: *Self, stmt: Stmt) std.mem.Allocator.Error!*Stmt {
+    var ptr = self.stmts.addOne() catch return ParseError.OutOfMemory;
+    ptr.* = stmt;
+    return ptr;
+}
+
 fn create(self: *Self, expr: anytype) std.mem.Allocator.Error!*Expr {
     var ptr = self.exprs.addOne() catch return ParseError.OutOfMemory;
     ptr.* = expr;
@@ -209,9 +249,9 @@ fn synchronize(self: *Self) ParseError!void {
     }
 }
 
-fn check(self: *Self, token_type: Token.Tokens) bool {
+fn check(self: *Self, token_type: Token.Types) bool {
     if (self.isAtEnd()) return false;
-    return token_type == @as(Token.Tokens, self.peek().type);
+    return token_type == @as(Token.Types, self.peek().type);
 }
 
 fn advance(self: *Self) *Token {

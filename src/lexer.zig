@@ -206,18 +206,18 @@ fn isAtEnd(self: *Self) bool {
     return self.current >= self.src.len;
 }
 
-fn expectTokenSequence(comptime expected: []const Token.Tokens, comptime src: []const u8) !void {
+fn expectTokenSequence(comptime expected: []const Token.Types, comptime src: []const u8) !void {
     var lexer = init(src, std.testing.allocator);
     var tokens = try lexer.scan();
     defer lexer.deinit();
     return expectTokenSequenceFromTokens(expected, tokens);
 }
 
-fn expectTokenSequenceFromTokens(comptime expected: []const Token.Tokens, tokens: []Token) !void {
+fn expectTokenSequenceFromTokens(comptime expected: []const Token.Types, tokens: []Token) !void {
     if (expected.len != tokens.len) return error.TestUnexpectedResult;
 
     return for (expected, tokens) |expected_token, actual_token| {
-        if (@as(Token.Tokens, actual_token.type) != expected_token) {
+        if (@as(Token.Types, actual_token.type) != expected_token) {
             break error.TestUnexpectedResult;
         }
     };

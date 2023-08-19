@@ -69,11 +69,11 @@ fn run(src: []const u8) !void {
     defer parser.deinit();
 
     if (parser.parse()) |ast| {
-        var buffer: [1024]u8 = undefined;
+        // var buffer: [1024]u8 = undefined;
 
-        var ast_print = astPrint(ast, buffer[0..]);
+        // var ast_print = astPrint(ast, buffer[0..]);
 
-        print("\n ast_print : {s} \n", .{ast_print});
+        // print("\n ast_print : {s} \n", .{ast_print});
 
         _ = interpret(ast) catch {
             std.os.exit(70);
