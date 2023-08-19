@@ -134,6 +134,21 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         .Variable => |*var_expr| {
             return (try self.environment.getOrFail(var_expr.name.lexeme)).*;
         },
+        .Assign => |*assign_expr| {
+            const value = try self.eval(assign_expr.value);
+            // @todo: runtime error reporting ?
+            self.environment.assign(assign_expr.name.lexeme, value) catch |err| switch (err) {
+                RuntimeError.UndefinedVariable => {
+                    std.debug.print("\nUndefinedVariable\n", .{});
+                    return err;
+                },
+                else => {
+                    std.debug.print("\nruntime err\n", .{});
+                    return err;
+                },
+            };
+            return value;
+        },
     };
 }
 

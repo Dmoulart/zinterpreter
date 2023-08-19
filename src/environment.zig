@@ -17,3 +17,11 @@ pub fn getOrFail(self: *Self, name: []const u8) RuntimeError!*Value {
 pub fn define(self: *Self, name: []const u8, value: Value) !void {
     try self.values.put(name, value);
 }
+
+pub fn assign(self: *Self, name: []const u8, value: Value) RuntimeError!void {
+    if (self.values.contains(name)) {
+        try self.values.put(name, value);
+    } else {
+        return RuntimeError.UndefinedVariable;
+    }
+}

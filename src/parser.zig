@@ -13,6 +13,7 @@ pub const ParseError = error{
     MissingSemiColonAfterValue,
     MissingSemiColonAfterVarDeclaration,
     MissingVariableName,
+    InvalidAssignmentTarget,
 };
 
 tokens: []Token,
@@ -94,7 +95,37 @@ fn printStatement(self: *Self) ParseError!*Stmt {
 }
 
 fn expression(self: *Self) ParseError!*Expr {
-    return try self.equality();
+    return try self.assignment();
+}
+
+fn assignment(self: *Self) ParseError!*Expr {
+    var expr = try self.equality();
+
+    if (self.match(&.{.EQUAL})) {
+        var equals = self.previous();
+        var value = try self.assignment();
+
+        return switch (expr.*) {
+            .Variable => |*var_expr| {
+                var name = var_expr.name;
+                return try self.create(.{
+                    .Assign = .{
+                        .name = name,
+                        .value = value,
+                    },
+                });
+            },
+            else => {
+                return self.err(
+                    equals,
+                    ParseError.InvalidAssignmentTarget,
+                    "Invalid assignment target.",
+                );
+            },
+        };
+    }
+
+    return expr;
 }
 
 fn expressionStatement(self: *Self) ParseError!*Stmt {
@@ -264,7 +295,7 @@ fn createStatement(self: *Self, stmt: Stmt) std.mem.Allocator.Error!*Stmt {
     return ptr;
 }
 
-fn create(self: *Self, expr: anytype) std.mem.Allocator.Error!*Expr {
+fn create(self: *Self, expr: Expr) std.mem.Allocator.Error!*Expr {
     var ptr = self.exprs.addOne() catch return ParseError.OutOfMemory;
     ptr.* = expr;
     return ptr;
