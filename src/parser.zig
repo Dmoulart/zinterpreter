@@ -14,6 +14,7 @@ pub const ParseError = error{
     MissingSemiColonAfterVarDeclaration,
     MissingVariableName,
     InvalidAssignmentTarget,
+    MissingClosingBrace,
 };
 
 tokens: []Token,
@@ -67,6 +68,7 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
     if (self.match(&.{.EQUAL})) {
         initializer = (try self.expression()).*;
     }
+
     _ = try self.consume(
         .SEMICOLON,
         ParseError.MissingSemiColonAfterVarDeclaration,
@@ -80,7 +82,19 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
 }
 
 fn statement(self: *Self) ParseError!*Stmt {
-    if (self.match(&.{.PRINT})) return try self.printStatement();
+    if (self.match(&.{.PRINT})) {
+        std.debug.print("\nmatch print !\n", .{});
+        return try self.printStatement();
+    }
+
+    if (self.match(&.{.LEFT_BRACE})) {
+        return try self.createStatement(.{
+            .Block = .{
+                .stmts = try self.block(),
+            },
+        });
+    }
+
     return try self.expressionStatement();
 }
 
@@ -92,6 +106,30 @@ fn printStatement(self: *Self) ParseError!*Stmt {
         "Expect ';' after value.",
     );
     return try self.createStatement(.{ .Print = value.* });
+}
+
+fn block(self: *Self) ParseError![]*Stmt {
+    var stmts = std.ArrayList(*Stmt).init(self.allocator);
+
+    while (!self.check(.RIGHT_BRACE) and !self.isAtEnd()) {
+        if (self.declaration()) |maybe_decl| {
+            if (maybe_decl) |decl| {
+                stmts.append(decl) catch |decl_err| switch (decl_err) {
+                    error.OutOfMemory => return ParseError.OutOfMemory,
+                };
+            }
+        } else |decl_err| {
+            return decl_err;
+        }
+    }
+
+    _ = try self.consume(
+        .RIGHT_BRACE,
+        ParseError.MissingClosingBrace,
+        "Expect '}' after block.",
+    );
+
+    return stmts.toOwnedSlice();
 }
 
 fn expression(self: *Self) ParseError!*Expr {
@@ -108,7 +146,7 @@ fn assignment(self: *Self) ParseError!*Expr {
         return switch (expr.*) {
             .Variable => |*var_expr| {
                 var name = var_expr.name;
-                return try self.create(.{
+                return try self.createExpression(.{
                     .Assign = .{
                         .name = name,
                         .value = value,
@@ -130,11 +168,13 @@ fn assignment(self: *Self) ParseError!*Expr {
 
 fn expressionStatement(self: *Self) ParseError!*Stmt {
     var expr = try self.expression();
+
     _ = try self.consume(
         .SEMICOLON,
         ParseError.MissingSemiColonAfterValue,
         "Expect ';' after value.",
     );
+
     return try self.createStatement(.{ .Expr = expr.* });
 }
 
@@ -142,7 +182,7 @@ fn equality(self: *Self) ParseError!*Expr {
     var expr = try self.comparison();
 
     while (self.match(&.{ .BANG_EQUAL, .EQUAL_EQUAL })) {
-        expr = try self.create(.{
+        expr = try self.createExpression(.{
             .Binary = .{
                 .left = expr,
                 .op = self.previous().*,
@@ -158,7 +198,7 @@ fn comparison(self: *Self) ParseError!*Expr {
     var expr = try self.term();
 
     while (self.match(&.{ .GREATER, .GREATER_EQUAL, .LESS, .LESS_EQUAL })) {
-        expr = try self.create(.{
+        expr = try self.createExpression(.{
             .Binary = .{
                 .left = expr,
                 .op = self.previous().*,
@@ -173,7 +213,7 @@ fn term(self: *Self) ParseError!*Expr {
     var expr = try self.factor();
 
     while (self.match(&.{ .MINUS, .PLUS })) {
-        expr = try self.create(.{
+        expr = try self.createExpression(.{
             .Binary = .{
                 .left = expr,
                 .op = self.previous().*,
@@ -189,7 +229,7 @@ fn factor(self: *Self) ParseError!*Expr {
     var expr = try self.unary();
 
     while (self.match(&.{ .SLASH, .STAR })) {
-        expr = try self.create(.{
+        expr = try self.createExpression(.{
             .Binary = .{
                 .left = expr,
                 .op = self.previous().*,
@@ -202,7 +242,7 @@ fn factor(self: *Self) ParseError!*Expr {
 
 fn unary(self: *Self) ParseError!*Expr {
     if (self.match(&.{ .BANG, .MINUS })) {
-        return try self.create(.{
+        return try self.createExpression(.{
             .Unary = .{
                 .op = self.previous().*,
                 .right = (try self.term()),
@@ -224,7 +264,7 @@ fn match(self: *Self, comptime types: []const Token.Types) bool {
 
 fn primary(self: *Self) !*Expr {
     if (self.match(&.{.FALSE})) {
-        return try self.create(.{
+        return try self.createExpression(.{
             .Literal = .{
                 .value = .{ .Boolean = false },
             },
@@ -232,7 +272,7 @@ fn primary(self: *Self) !*Expr {
     }
 
     if (self.match(&.{.TRUE})) {
-        return try self.create(.{
+        return try self.createExpression(.{
             .Literal = .{
                 .value = .{ .Boolean = true },
             },
@@ -240,7 +280,7 @@ fn primary(self: *Self) !*Expr {
     }
 
     if (self.match(&.{.NIL})) {
-        return try self.create(.{
+        return try self.createExpression(.{
             .Literal = .{
                 .value = .{ .Nil = null },
             },
@@ -248,7 +288,7 @@ fn primary(self: *Self) !*Expr {
     }
 
     if (self.match(&.{.NUMBER})) {
-        return try self.create(.{
+        return try self.createExpression(.{
             .Literal = .{
                 .value = .{ .Float = self.previous().type.NUMBER },
             },
@@ -256,7 +296,7 @@ fn primary(self: *Self) !*Expr {
     }
 
     if (self.match(&.{.STRING})) {
-        return try self.create(.{
+        return try self.createExpression(.{
             .Literal = .{
                 .value = .{
                     .String = self.previous().type.STRING,
@@ -266,9 +306,13 @@ fn primary(self: *Self) !*Expr {
     }
 
     if (self.match(&.{.IDENTIFIER})) {
-        return try self.create(.{ .Variable = .{
-            .name = self.previous().*,
-        } });
+        return try self.createExpression(
+            .{
+                .Variable = .{
+                    .name = self.previous().*,
+                },
+            },
+        );
     }
 
     if (self.match(&.{.LEFT_PAREN})) {
@@ -279,7 +323,7 @@ fn primary(self: *Self) !*Expr {
             "Expect ) after expression",
         );
 
-        return try self.create(.{
+        return try self.createExpression(.{
             .Grouping = .{
                 .expr = expr,
             },
@@ -295,7 +339,7 @@ fn createStatement(self: *Self, stmt: Stmt) std.mem.Allocator.Error!*Stmt {
     return ptr;
 }
 
-fn create(self: *Self, expr: Expr) std.mem.Allocator.Error!*Expr {
+fn createExpression(self: *Self, expr: Expr) std.mem.Allocator.Error!*Expr {
     var ptr = self.exprs.addOne() catch return ParseError.OutOfMemory;
     ptr.* = expr;
     return ptr;

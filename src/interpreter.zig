@@ -7,7 +7,9 @@ const Environment = @import("./environment.zig");
 
 const Self = @This();
 
-environment: Environment,
+environment: *Environment,
+environments: std.ArrayList(Environment),
+allocator: std.mem.Allocator,
 
 pub const RuntimeError = error{
     WrongOperandType,
@@ -38,10 +40,20 @@ pub const Value = union(Values) {
     }
 };
 
-pub fn init(allocator: std.mem.Allocator) Self {
+pub fn init(allocator: std.mem.Allocator) !Self {
+    var environments = std.ArrayList(Environment).init(allocator);
+    var global_environment = try environments.addOne();
+    global_environment.* = Environment.init(allocator, null);
+
     return Self{
-        .environment = Environment.init(allocator),
+        .environment = global_environment,
+        .environments = environments,
+        .allocator = allocator,
     };
+}
+
+pub fn deinit(self: *Self) void {
+    self.environments.deinit();
 }
 
 pub fn interpret(self: *Self, stmts: []const Stmt) RuntimeError!void {
@@ -50,12 +62,12 @@ pub fn interpret(self: *Self, stmts: []const Stmt) RuntimeError!void {
     }
 }
 
-fn execute(self: *Self, stmt: *const Stmt) !void {
+fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
     switch (stmt.*) {
         .Print => |*print| {
             var val = try self.eval(print);
             var buf: [1024]u8 = undefined;
-            std.debug.print("{s}", .{val.stringify(&buf)});
+            std.debug.print("{s}\n", .{val.stringify(&buf)});
         },
         .Expr => |*expr| {
             _ = try self.eval(expr);
@@ -70,7 +82,26 @@ fn execute(self: *Self, stmt: *const Stmt) !void {
                 error.OutOfMemory => return RuntimeError.OutOfMemory,
             };
         },
+        .Block => |*block_stmt| {
+            var new_environment = try self.environments.addOne();
+            new_environment.* = Environment.init(self.allocator, self.environment);
+            try self.executeBlock(block_stmt.stmts, new_environment);
+        },
     }
+}
+
+fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !void {
+    var previous = self.environment;
+    self.environment = environment;
+
+    for (stmts) |stmt| {
+        self.execute(stmt) catch |err| {
+            self.environment = previous;
+            return err;
+        };
+    }
+
+    self.environment = previous;
 }
 
 fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
