@@ -32,7 +32,6 @@ fn runFile(filepath: [:0]u8) !void {
 
     try file.reader().readNoEof(buf);
     try run(buf);
-    print("{s}", .{buf});
 }
 
 fn runPrompt() !void {
@@ -48,8 +47,6 @@ fn runPrompt() !void {
                 return;
             }
 
-            print("{s}", .{line});
-
             try run(line);
         }
     }
@@ -60,10 +57,6 @@ fn run(src: []const u8) !void {
     defer lexer.deinit();
 
     var tokens = try lexer.scan();
-
-    // for (tokens) |tok| {
-    //     print("\n - type: {} | lexeme: {s}\n", .{ tok.type, tok.lexeme });
-    // }
 
     var parser = Parser.init(tokens, std.heap.page_allocator);
     defer parser.deinit();

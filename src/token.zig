@@ -129,3 +129,7 @@ const keywords = std.ComptimeStringMap(Type, .{
 pub fn keyword(identifier: []const u8) ?Type {
     return keywords.get(identifier);
 }
+
+pub fn debugPrint(self: *Self) void {
+    std.debug.print("\n - type: {} | lexeme: {s}\n", .{ self.type, self.lexeme });
+}

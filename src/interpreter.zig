@@ -42,7 +42,7 @@ fn execute(stmt: *const Stmt) !void {
         .Print => |*print| {
             var val = try eval(print);
             var buf: [1024]u8 = undefined;
-            std.debug.print("\n{s}", .{val.stringify(&buf)});
+            std.debug.print("{s}", .{val.stringify(&buf)});
         },
         .Expr => |*expr| {
             _ = try eval(expr);
