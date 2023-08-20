@@ -159,7 +159,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
                     try checkNumberOperands(binary.op, left, right);
                     return .{ .Number = left.Number * right.Number };
                 },
-                else => .{ .Nil = null }, // todo ?
+                else => unreachable, // todo ? .{ .Nil = null }
             };
         },
         .Variable => |*var_expr| {

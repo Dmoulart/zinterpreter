@@ -70,7 +70,8 @@ fn run(src: []const u8) !void {
         // var buffer: [1024]u8 = undefined;
         // var ast_print = astPrint(ast, buffer[0..]);
         // print("\n ast_print : {s} \n", .{ast_print});
-        try jsonPrint(ast, "out.json");
+
+        // try jsonPrint(ast, "out.json");
 
         var interpreter = try Interpreter.init(std.heap.page_allocator);
         defer interpreter.deinit();
