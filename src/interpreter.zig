@@ -15,6 +15,7 @@ pub const RuntimeError = error{
     WrongOperandType,
     UndefinedVariable,
     OutOfMemory,
+    UninitializedVariable,
 };
 
 pub const Values = enum {
@@ -22,6 +23,7 @@ pub const Values = enum {
     Boolean,
     Number,
     String,
+    Uninitialized,
 };
 
 pub const Value = union(Values) {
@@ -29,6 +31,7 @@ pub const Value = union(Values) {
     Boolean: bool,
     Number: f64,
     String: []const u8,
+    Uninitialized: ?bool,
 
     pub fn stringify(self: *Value, buf: []u8) []const u8 {
         return switch (self.*) {
@@ -36,6 +39,7 @@ pub const Value = union(Values) {
             .Boolean => |boolean| if (boolean) "true" else "false",
             .Number => |number| std.fmt.bufPrint(buf, "{d}", .{number}) catch "Number Printing Error",
             .String => |string| string,
+            .Uninitialized => "uninitialized",
         };
     }
 };
@@ -76,7 +80,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
             var value: Value = if (var_stmt.initializer) |*initializer|
                 try self.eval(initializer)
             else
-                .{ .Nil = null };
+                .{ .Uninitialized = null };
 
             self.environment.define(var_stmt.name.lexeme, value) catch |err| switch (err) {
                 error.OutOfMemory => return RuntimeError.OutOfMemory,
@@ -117,7 +121,8 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
                     try checkNumberOperand(unary.op, right);
                     return .{ .Number = -right.Number };
                 },
-                else => .{ .Nil = null },
+                // else => .{ .Nil = null },
+                else => unreachable,
             };
         },
         .Binary => |*binary| {
@@ -163,7 +168,12 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             };
         },
         .Variable => |*var_expr| {
-            return (try self.environment.getOrFail(var_expr.name.lexeme)).*;
+            var value = (try self.environment.getOrFail(var_expr.name.lexeme)).*;
+            return switch (value) {
+                .Uninitialized => RuntimeError.UninitializedVariable,
+                else => value,
+            };
+            // return (try self.environment.getOrFail(var_expr.name.lexeme)).*;
         },
         .Assign => |*assign_expr| {
             const value = try self.eval(assign_expr.value);
@@ -174,6 +184,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
                     return err;
                 },
                 else => {
+                    // @todo make error reporting for other errors
                     std.debug.print("\nruntime err\n", .{});
                     return err;
                 },
@@ -201,6 +212,7 @@ fn isEqual(a: Value, b: Value) bool {
         .Boolean => a.Boolean == b.Boolean,
         .String => std.mem.eql(u8, a.String, b.String),
         .Number => a.Number == b.Number,
+        .Uninitialized => false,
     };
 }
 
@@ -227,4 +239,16 @@ fn checkNumberOperands(operator: Token, left: Value, right: Value) RuntimeError!
         report(operator.line, "", "Operands must be numbers");
         return RuntimeError.WrongOperandType;
     }
+}
+
+// @todo : make real err reporting !!
+fn reportError(self: *Self, token: *const Token, err: RuntimeError, msg: []const u8) RuntimeError {
+    if (token.type == .EOF) {
+        report(token.line, "at end of file", msg);
+    } else {
+        var where = try std.fmt.allocPrint(self.allocator, "at {s}", .{token.lexeme});
+        report(token.line, where, msg);
+    }
+
+    return err;
 }
