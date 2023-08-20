@@ -20,6 +20,8 @@ pub const ParseError = error{
     MissingClosingBrace,
     MissingLeftParenBeforeIfCondition,
     MissingRightParenAfterIfCondition,
+    MissingLeftParenBeforeWhileCondition,
+    MissingLeftParenAfterWhileCondition,
 };
 
 tokens: []Token,
@@ -98,6 +100,10 @@ fn statement(self: *Self) ParseError!*Stmt {
         return try self.printStatement();
     }
 
+    if (self.match(&.{.WHILE})) {
+        return try self.whileStatement();
+    }
+
     if (self.match(&.{.LEFT_BRACE})) {
         return try self.createStatement(.{
             .Block = .{
@@ -117,6 +123,29 @@ fn printStatement(self: *Self) ParseError!*Stmt {
         "Expect ';' after value.",
     );
     return try self.createStatement(.{ .Print = value.* });
+}
+
+fn whileStatement(self: *Self) ParseError!*Stmt {
+    _ = try self.consume(
+        .LEFT_PAREN,
+        ParseError.MissingLeftParenBeforeWhileCondition,
+        "Expect '(' after 'while'.",
+    );
+
+    var condition = try self.expression();
+
+    _ = try self.consume(
+        .RIGHT_PAREN,
+        ParseError.MissingLeftParenAfterWhileCondition,
+        "Expect ')' after 'condition'.",
+    );
+
+    var body = try self.statement();
+
+    return try self.createStatement(.{ .While = .{
+        .condition = condition.*,
+        .body = body,
+    } });
 }
 
 fn ifStatement(self: *Self) ParseError!*Stmt {

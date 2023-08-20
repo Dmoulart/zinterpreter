@@ -1,1 +1,7 @@
-if(false or true) print "logical operatoooors";
+var i = 10;
+
+while(i > 0) {
+    var hello = "hello";
+    i = i - 1;
+    print i;
+}

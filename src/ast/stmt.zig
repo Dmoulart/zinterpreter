@@ -7,6 +7,7 @@ pub const Stmt = union(enum) {
     If: If,
     Print: Expr,
     Var: Var,
+    While: While,
 
     pub const Block = struct {
         stmts: []*Stmt,
@@ -21,5 +22,10 @@ pub const Stmt = union(enum) {
     pub const Var = struct {
         name: Token,
         initializer: ?Expr,
+    };
+
+    pub const While = struct {
+        condition: Expr,
+        body: *Stmt,
     };
 };

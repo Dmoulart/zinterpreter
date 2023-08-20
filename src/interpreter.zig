@@ -102,6 +102,11 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
                 try self.execute(else_branch);
             }
         },
+        .While => |*while_stmt| {
+            while (isTruthy(try self.eval(&while_stmt.condition))) {
+                _ = try self.execute(while_stmt.body);
+            }
+        },
     }
 }
 
