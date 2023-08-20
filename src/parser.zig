@@ -15,6 +15,8 @@ pub const ParseError = error{
     MissingVariableName,
     InvalidAssignmentTarget,
     MissingClosingBrace,
+    MissingLeftParenBeforeIfCondition,
+    MissingRightParenAfterIfCondition,
 };
 
 tokens: []Token,
@@ -85,6 +87,10 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
 }
 
 fn statement(self: *Self) ParseError!*Stmt {
+    if (self.match(&.{.IF})) {
+        return try self.ifStatement();
+    }
+
     if (self.match(&.{.PRINT})) {
         return try self.printStatement();
     }
@@ -108,6 +114,32 @@ fn printStatement(self: *Self) ParseError!*Stmt {
         "Expect ';' after value.",
     );
     return try self.createStatement(.{ .Print = value.* });
+}
+
+fn ifStatement(self: *Self) ParseError!*Stmt {
+    _ = try self.consume(
+        .LEFT_PAREN,
+        ParseError.MissingLeftParenBeforeIfCondition,
+        "Expect '(' after 'if'.",
+    );
+
+    var condition = try self.expression();
+
+    _ = try self.consume(
+        .RIGHT_PAREN,
+        ParseError.MissingRightParenAfterIfCondition,
+        "Expect ')' after if condition.",
+    );
+
+    var then_branch = try self.statement();
+
+    var else_branch = if (self.match(&.{.ELSE})) try self.statement() else null;
+
+    return try self.createStatement(.{ .If = .{
+        .condition = condition.*,
+        .then_branch = then_branch,
+        .else_branch = else_branch,
+    } });
 }
 
 fn block(self: *Self) ParseError![]*Stmt {

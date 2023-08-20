@@ -91,6 +91,14 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
             new_environment.* = Environment.init(self.allocator, self.environment);
             try self.executeBlock(block_stmt.stmts, new_environment);
         },
+        .If => |*if_stmt| {
+            var condition_value = try self.eval(&if_stmt.condition);
+            if (isTruthy(condition_value)) {
+                try self.execute(if_stmt.then_branch);
+            } else if (if_stmt.else_branch) |else_branch| {
+                try self.execute(else_branch);
+            }
+        },
     }
 }
 
