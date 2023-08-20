@@ -66,7 +66,9 @@ fn run(src: []const u8) !void {
         var interpreter = try Interpreter.init(std.heap.page_allocator);
         defer interpreter.deinit();
 
-        _ = interpreter.interpret(ast) catch {
+        _ = interpreter.interpret(ast) catch |err| {
+            //@todo add error reporting
+            print("\n{s}\n ", .{@errorName(err)});
             std.os.exit(70);
         };
     } else |_| {
