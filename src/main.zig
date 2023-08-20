@@ -11,6 +11,8 @@ const astPrint = @import("./ast/printer.zig").print;
 const Interpreter = @import("./interpreter.zig");
 const interpret = @import("./interpreter.zig").interpret;
 
+const Timer = @import("timers.zig");
+
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
     const args = try std.process.argsAlloc(alloc);
@@ -66,10 +68,12 @@ fn run(src: []const u8) !void {
         var interpreter = try Interpreter.init(std.heap.page_allocator);
         defer interpreter.deinit();
 
+        Timer.start("interpret");
         _ = interpreter.interpret(ast) catch {
             //@todo add error reporting
             std.os.exit(70);
         };
+        Timer.end("interpret");
     } else |_| {
         // Don't exit the repl when a parse error is raised.
 
