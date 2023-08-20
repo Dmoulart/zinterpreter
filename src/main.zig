@@ -11,8 +11,6 @@ const astPrint = @import("./ast/printer.zig").print;
 const Interpreter = @import("./interpreter.zig");
 const interpret = @import("./interpreter.zig").interpret;
 
-const jsonPrint = @import("./json-printer.zig").jsonPrint;
-
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
     const args = try std.process.argsAlloc(alloc);
@@ -64,15 +62,7 @@ fn run(src: []const u8) !void {
     var parser = Parser.init(tokens, std.heap.page_allocator);
     defer parser.deinit();
 
-    try jsonPrint(tokens, "tokens.json");
-
     if (parser.parse()) |ast| {
-        // var buffer: [1024]u8 = undefined;
-        // var ast_print = astPrint(ast, buffer[0..]);
-        // print("\n ast_print : {s} \n", .{ast_print});
-
-        // try jsonPrint(ast, "out.json");
-
         var interpreter = try Interpreter.init(std.heap.page_allocator);
         defer interpreter.deinit();
 
@@ -82,46 +72,7 @@ fn run(src: []const u8) !void {
     } else |_| {
         // Don't exit the repl when a parse error is raised.
 
-        // print("\n Exit after error \n", .{});
         // std.os.exit(65);
         return;
     }
 }
-
-// pub fn main2() !void {
-//     var expr = Expr{
-//         .Binary = .{
-//             .left = &Expr{
-//                 .Unary = .{
-//                     .op = Tok{
-//                         .type = .MINUS,
-//                         .lexeme = "-",
-//                         .line = 1,
-//                     },
-//                     .right = &Expr{
-//                         .Literal = .{
-//                             .value = .{ .Integer = 123 },
-//                         },
-//                     },
-//                 },
-//             },
-//             .op = Tok{
-//                 .type = .STAR,
-//                 .lexeme = "*",
-//                 .line = 1,
-//             },
-//             .right = &Expr{
-//                 .Grouping = .{
-//                     .expr = &Expr{
-//                         .Literal = .{
-//                             .value = .{ .String = "45.67" },
-//                         },
-//                     },
-//                 },
-//             },
-//         },
-//     };
-//     var buffer: [1024]u8 = undefined;
-//     var ast_print = astPrint(&expr, buffer[0..]);
-//     print("\nastprint : {s}\n", .{ast_print});
-// }
