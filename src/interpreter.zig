@@ -56,8 +56,8 @@ pub fn deinit(self: *Self) void {
     self.environments.deinit();
 }
 
-pub fn interpret(self: *Self, stmts: []const Stmt) RuntimeError!void {
-    for (stmts) |*stmt| {
+pub fn interpret(self: *Self, stmts: []const *Stmt) RuntimeError!void {
+    for (stmts) |stmt| {
         _ = try self.execute(stmt);
     }
 }

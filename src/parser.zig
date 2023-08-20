@@ -22,26 +22,29 @@ current: u32 = 0,
 
 allocator: std.mem.Allocator,
 
-exprs: std.ArrayList(Expr),
-
-stmts: std.ArrayList(Stmt),
+stmts: std.ArrayList(*Stmt),
 
 pub fn init(tokens: []Token, allocator: std.mem.Allocator) Self {
     return Self{
         .tokens = tokens,
         .allocator = allocator,
-        .exprs = std.ArrayList(Expr).init(allocator),
-        .stmts = std.ArrayList(Stmt).init(allocator),
+        .stmts = std.ArrayList(*Stmt).init(allocator),
     };
 }
 
 pub fn deinit(self: *Self) void {
-    self.exprs.deinit();
+    for (self.stmts.items) |stmt| {
+        self.allocator.destroy(stmt);
+    }
+    self.stmts.deinit();
 }
 
-pub fn parse(self: *Self) ParseError![]Stmt {
+pub fn parse(self: *Self) ParseError![]*Stmt {
     while (!self.isAtEnd()) {
-        _ = try self.declaration();
+        var maybe_stmt = try self.declaration();
+        if (maybe_stmt) |stmt| {
+            try self.stmts.append(stmt);
+        }
     }
 
     return self.stmts.toOwnedSlice();
@@ -83,7 +86,6 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
 
 fn statement(self: *Self) ParseError!*Stmt {
     if (self.match(&.{.PRINT})) {
-        std.debug.print("\nmatch print !\n", .{});
         return try self.printStatement();
     }
 
@@ -334,13 +336,14 @@ fn primary(self: *Self) !*Expr {
 }
 
 fn createStatement(self: *Self, stmt: Stmt) std.mem.Allocator.Error!*Stmt {
-    var ptr = self.stmts.addOne() catch return ParseError.OutOfMemory;
+    // var ptr = self.stmts.addOne() catch return ParseError.OutOfMemory;
+    var ptr = self.allocator.create(Stmt) catch return ParseError.OutOfMemory;
     ptr.* = stmt;
     return ptr;
 }
 
 fn createExpression(self: *Self, expr: Expr) std.mem.Allocator.Error!*Expr {
-    var ptr = self.exprs.addOne() catch return ParseError.OutOfMemory;
+    var ptr = self.allocator.create(Expr) catch return ParseError.OutOfMemory;
     ptr.* = expr;
     return ptr;
 }
@@ -369,6 +372,9 @@ fn synchronize(self: *Self) ParseError!void {
 
 fn check(self: *Self, token_type: Token.Types) bool {
     if (self.isAtEnd()) return false;
+    // if (token_type == @as(Token.Types, self.peek().type)) {
+    //     std.debug.print("\nmatch : peek {any} tok {any}", .{ self.peek().type, token_type });
+    // }
     return token_type == @as(Token.Types, self.peek().type);
 }
 
