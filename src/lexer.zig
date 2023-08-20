@@ -8,6 +8,15 @@ const isDigit = std.ascii.isDigit;
 
 const Self = @This();
 
+// const ErrorReporter = @import("./error-reporter.zig").ErrorReporter;
+// const Err = ErrorReporter(LexerError);
+// const LexerError = error{
+//     UnexpectedCharacter,
+// };
+
+//@todo remove this and use error reporter
+had_error: bool = false,
+
 src: []const u8,
 
 tokens: ArrayList(Token),
@@ -15,8 +24,6 @@ tokens: ArrayList(Token),
 start: u32 = 0,
 current: u32 = 0,
 line: u32 = 1,
-
-had_error: bool = false,
 
 pub fn init(src: []const u8, allocator: std.mem.Allocator) Self {
     return Self{
