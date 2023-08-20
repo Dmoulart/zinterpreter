@@ -5,6 +5,7 @@ pub const Expr = union(enum) {
     Binary: Binary,
     Grouping: Grouping,
     Literal: Literal,
+    Logical: Logical,
     Unary: Unary,
     Variable: Variable,
 
@@ -33,6 +34,12 @@ pub const Expr = union(enum) {
         };
 
         value: Value,
+    };
+
+    pub const Logical = struct {
+        left: *const Expr,
+        op: Token,
+        right: *const Expr,
     };
 
     pub const Unary = struct {

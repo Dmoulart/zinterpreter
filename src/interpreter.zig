@@ -5,6 +5,9 @@ const Token = @import("./token.zig");
 const report = @import("./error-reporter.zig").report;
 const Environment = @import("./environment.zig");
 
+const ErrorReporter = @import("./error-reporter.zig").ErrorReporter;
+const Err = ErrorReporter(RuntimeError);
+
 const Self = @This();
 
 environment: *Environment,
@@ -83,7 +86,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
                 .{ .Uninitialized = null };
 
             self.environment.define(var_stmt.name.lexeme, value) catch |err| switch (err) {
-                error.OutOfMemory => return RuntimeError.OutOfMemory,
+                error.OutOfMemory => return Err.raise(&var_stmt.name, RuntimeError.OutOfMemory, "Out of memory"),
             };
         },
         .Block => |*block_stmt| {
@@ -178,26 +181,30 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         .Variable => |*var_expr| {
             var value = (try self.environment.getOrFail(var_expr.name.lexeme)).*;
             return switch (value) {
-                .Uninitialized => RuntimeError.UninitializedVariable,
+                .Uninitialized => Err.raise(&var_expr.name, RuntimeError.UninitializedVariable, "Uninitialized variable"),
                 else => value,
             };
-            // return (try self.environment.getOrFail(var_expr.name.lexeme)).*;
         },
         .Assign => |*assign_expr| {
             const value = try self.eval(assign_expr.value);
             // @todo: runtime error reporting ?
-            self.environment.assign(assign_expr.name.lexeme, value) catch |err| switch (err) {
-                RuntimeError.UndefinedVariable => {
-                    std.debug.print("\nUndefinedVariable\n", .{});
-                    return err;
-                },
-                else => {
-                    // @todo make error reporting for other errors
-                    std.debug.print("\nruntime err\n", .{});
-                    return err;
-                },
-            };
+            self.environment.assign(assign_expr.name.lexeme, value) catch return Err.raise(
+                &assign_expr.name,
+                RuntimeError.UndefinedVariable,
+                "Undefined variable",
+            );
             return value;
+        },
+        .Logical => |*logical_expr| {
+            var left = try self.eval(logical_expr.left);
+
+            if (logical_expr.op.type == .OR) {
+                if (isTruthy(left)) return left;
+            } else {
+                if (!isTruthy(left)) return left;
+            }
+
+            return try self.eval(logical_expr.right);
         },
     };
 }
@@ -235,28 +242,20 @@ fn isTruthy(val: Value) bool {
 fn checkNumberOperand(operator: Token, operand: Value) RuntimeError!void {
     return switch (operand) {
         .Number => return,
-        else => {
-            report(operator.line, "", "Operand must be a number");
-            return RuntimeError.WrongOperandType;
-        },
+        else => Err.raise(
+            &operator,
+            RuntimeError.WrongOperandType,
+            "Operand must be a number",
+        ),
     };
 }
 
 fn checkNumberOperands(operator: Token, left: Value, right: Value) RuntimeError!void {
     if (@as(Values, left) != Values.Number or @as(Values, right) != Values.Number) {
-        report(operator.line, "", "Operands must be numbers");
-        return RuntimeError.WrongOperandType;
+        return Err.raise(
+            &operator,
+            RuntimeError.WrongOperandType,
+            "Operands must be a number",
+        );
     }
-}
-
-// @todo : make real err reporting !!
-fn reportError(self: *Self, token: *const Token, err: RuntimeError, msg: []const u8) RuntimeError {
-    if (token.type == .EOF) {
-        report(token.line, "at end of file", msg);
-    } else {
-        var where = try std.fmt.allocPrint(self.allocator, "at {s}", .{token.lexeme});
-        report(token.line, where, msg);
-    }
-
-    return err;
 }

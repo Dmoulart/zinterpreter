@@ -1,6 +1,1 @@
-var a = false;
-var b = true;
-
-if(a) print a; else print "a not true";
-
-if(b) print b ;
+if(false or true) print "logical operatoooors";

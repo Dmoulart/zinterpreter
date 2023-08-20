@@ -4,6 +4,9 @@ const Token = @import("./token.zig");
 const Expr = @import("./ast/expr.zig").Expr;
 const Stmt = @import("./ast/stmt.zig").Stmt;
 
+const ErrorReporter = @import("./error-reporter.zig").ErrorReporter;
+const Err = ErrorReporter(ParseError);
+
 const Self = @This();
 
 pub const ParseError = error{
@@ -171,7 +174,7 @@ fn expression(self: *Self) ParseError!*Expr {
 }
 
 fn assignment(self: *Self) ParseError!*Expr {
-    var expr = try self.equality();
+    var expr = try self.orExpression();
 
     if (self.match(&.{.EQUAL})) {
         var equals = self.previous();
@@ -187,14 +190,44 @@ fn assignment(self: *Self) ParseError!*Expr {
                     },
                 });
             },
-            else => {
-                return self.err(
-                    equals,
-                    ParseError.InvalidAssignmentTarget,
-                    "Invalid assignment target.",
-                );
-            },
+            else => Err.raise(
+                equals,
+                ParseError.InvalidAssignmentTarget,
+                "Invalid assignment target.",
+            ),
         };
+    }
+
+    return expr;
+}
+
+fn orExpression(self: *Self) ParseError!*Expr {
+    var expr = try self.andExpression();
+
+    while (self.match(&.{.OR})) {
+        var op = self.previous();
+        var right = try self.andExpression();
+        expr = try self.createExpression(.{ .Logical = .{
+            .left = expr,
+            .op = op.*,
+            .right = right,
+        } });
+    }
+
+    return expr;
+}
+
+fn andExpression(self: *Self) ParseError!*Expr {
+    var expr = try self.equality();
+
+    while (self.match(&.{.AND})) {
+        var op = self.previous();
+        var right = try self.andExpression();
+        expr = try self.createExpression(.{ .Logical = .{
+            .left = expr,
+            .op = op.*,
+            .right = right,
+        } });
     }
 
     return expr;
@@ -364,11 +397,14 @@ fn primary(self: *Self) !*Expr {
         });
     }
 
-    return self.err(self.peek(), ParseError.MissingExpression, "Missing expression");
+    return Err.raise(
+        self.peek(),
+        ParseError.MissingExpression,
+        "Missing expression",
+    );
 }
 
 fn createStatement(self: *Self, stmt: Stmt) std.mem.Allocator.Error!*Stmt {
-    // var ptr = self.stmts.addOne() catch return ParseError.OutOfMemory;
     var ptr = self.allocator.create(Stmt) catch return ParseError.OutOfMemory;
     ptr.* = stmt;
     return ptr;
@@ -418,10 +454,9 @@ fn advance(self: *Self) *Token {
     return self.previous();
 }
 
-fn consume(self: *Self, token_type: Token.Types, parse_error: ParseError, comptime msg: []const u8) ParseError!*Token {
+fn consume(self: *Self, token_type: Token.Types, comptime parse_error: ParseError, comptime msg: []const u8) ParseError!*Token {
     if (self.check(token_type)) return self.advance();
-
-    return self.err(self.peek(), parse_error, msg);
+    return Err.raise(self.peek(), parse_error, msg);
 }
 
 fn isAtEnd(self: *Self) bool {
@@ -436,16 +471,16 @@ fn previous(self: *Self) *Token {
     return &self.tokens[self.current - 1];
 }
 
-fn err(self: *Self, token: *Token, parse_error: ParseError, comptime msg: []const u8) ParseError {
-    if (token.type == .EOF) {
-        report(token.line, "at end of file", msg);
-    } else {
-        var where = try std.fmt.allocPrint(self.allocator, "at {s}", .{token.lexeme});
-        report(token.line, where, msg);
-    }
+// fn err(self: *Self, token: *Token, parse_error: ParseError, comptime msg: []const u8) ParseError {
+//     if (token.type == .EOF) {
+//         report(token.line, "at end of file", msg);
+//     } else {
+//         var where = try std.fmt.allocPrint(self.allocator, "at {s}", .{token.lexeme});
+//         report(token.line, where, msg);
+//     }
 
-    return parse_error;
-}
+//     return parse_error;
+// }
 
 const expect = std.testing.expect;
 
