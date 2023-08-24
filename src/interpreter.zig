@@ -11,7 +11,7 @@ const Err = ErrorReporter(RuntimeError);
 const Self = @This();
 
 environment: *Environment,
-environments: std.ArrayList(Environment),
+environments: std.ArrayList(*Environment),
 allocator: std.mem.Allocator,
 
 pub const RuntimeError = error{
@@ -48,9 +48,10 @@ pub const Value = union(Values) {
 };
 
 pub fn init(allocator: std.mem.Allocator) !Self {
-    var environments = std.ArrayList(Environment).init(allocator);
-    var global_environment = try environments.addOne();
+    var environments = std.ArrayList(*Environment).init(allocator);
+    var global_environment = try allocator.create(Environment);
     global_environment.* = Environment.init(allocator, null);
+    try environments.append(global_environment);
 
     return Self{
         .environment = global_environment,
@@ -90,8 +91,10 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
             };
         },
         .Block => |*block_stmt| {
-            var new_environment = try self.environments.addOne();
+            var new_environment = try self.allocator.create(Environment);
             new_environment.* = Environment.init(self.allocator, self.environment);
+
+            try self.environments.append(new_environment);
             try self.executeBlock(block_stmt.stmts, new_environment);
         },
         .If => |*if_stmt| {

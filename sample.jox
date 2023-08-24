@@ -10,3 +10,5 @@ var ok = true;
 for(var i = 0; i < 10; i++){
     print i;
 }
+
+var i = 100000; while(i > 0) { i = i - 1; print i;}
