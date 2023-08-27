@@ -22,6 +22,9 @@ pub const ParseError = error{
     MissingRightParenAfterIfCondition,
     MissingLeftParenBeforeWhileCondition,
     MissingLeftParenAfterWhileCondition,
+    MissingLeftParenBeforeForCondition,
+    MissingRightParenAfterForCondition,
+    MissingSemiColonAfterForCondition,
 };
 
 tokens: []Token,
@@ -92,6 +95,10 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
 }
 
 fn statement(self: *Self) ParseError!*Stmt {
+    if (self.match(&.{.FOR})) {
+        return try self.forStatement();
+    }
+
     if (self.match(&.{.IF})) {
         return try self.ifStatement();
     }
@@ -113,6 +120,62 @@ fn statement(self: *Self) ParseError!*Stmt {
     }
 
     return try self.expressionStatement();
+}
+
+fn forStatement(self: *Self) ParseError!*Stmt {
+    _ = try self.consume(
+        .LEFT_PAREN,
+        ParseError.MissingLeftParenBeforeForCondition,
+        "Expect '(' before for condition.",
+    );
+
+    const initializer = if (self.match(&.{.SEMICOLON})) null else if (self.match(&.{.VAR})) try self.varDeclaration() else try self.statement();
+    _ = initializer;
+    const condition = if (self.match(&.{.SEMICOLON}))
+        try self.createExpression(
+            .{
+                .Literal = .{
+                    .value = .{ .Boolean = true },
+                },
+            },
+        )
+    else
+        try self.expression();
+
+    _ = try self.consume(
+        .SEMICOLON,
+        ParseError.MissingSemiColonAfterForCondition,
+        "Expect ';' after loop condition.",
+    );
+    const maybe_increment = if (!self.check(.RIGHT_PAREN)) try self.expression() else null;
+
+    _ = try self.consume(
+        .RIGHT_PAREN,
+        ParseError.MissingRightParenAfterForCondition,
+        "Expect ')' after for condition.",
+    );
+
+    var body = try self.statement();
+
+    if (maybe_increment) |increment| {
+        // var stmts = [2]*Stmt{ body, try self.createStatement(.{ .Expr = increment.* }) };
+        var stmts = try self.allocator.alloc(*Stmt, 2);
+        stmts[0] = body;
+        stmts[1] = try self.createStatement(.{ .Expr = increment.* });
+        body = try self.createStatement(
+            .{
+                .Block = .{ .stmts = stmts[0..] },
+            },
+        );
+    }
+
+    body = try self.createStatement(
+        .{
+            .While = .{ .condition = condition.*, .body = body },
+        },
+    );
+
+    return body;
 }
 
 fn printStatement(self: *Self) ParseError!*Stmt {
