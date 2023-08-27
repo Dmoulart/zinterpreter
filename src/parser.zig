@@ -129,8 +129,8 @@ fn forStatement(self: *Self) ParseError!*Stmt {
         "Expect '(' before for condition.",
     );
 
-    const initializer = if (self.match(&.{.SEMICOLON})) null else if (self.match(&.{.VAR})) try self.varDeclaration() else try self.statement();
-    _ = initializer;
+    const maybe_initializer = if (self.match(&.{.SEMICOLON})) null else if (self.match(&.{.VAR})) try self.varDeclaration() else try self.statement();
+
     const condition = if (self.match(&.{.SEMICOLON}))
         try self.createExpression(
             .{
@@ -174,6 +174,13 @@ fn forStatement(self: *Self) ParseError!*Stmt {
             .While = .{ .condition = condition.*, .body = body },
         },
     );
+
+    if (maybe_initializer) |initializer| {
+        var stmts = try self.allocator.alloc(*Stmt, 2);
+        stmts[0] = initializer;
+        stmts[1] = body;
+        body = try self.createStatement(.{ .Block = .{ .stmts = stmts } });
+    }
 
     return body;
 }

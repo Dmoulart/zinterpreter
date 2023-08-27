@@ -187,10 +187,14 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             };
         },
         .Variable => |*var_expr| {
-            var value = (try self.environment.getOrFail(var_expr.name.lexeme)).*;
-            return switch (value) {
+            var value = self.environment.getOrFail(var_expr.name.lexeme) catch return Err.raise(
+                &var_expr.name,
+                RuntimeError.UndefinedVariable,
+                "Undefined variable",
+            );
+            return switch (value.*) {
                 .Uninitialized => Err.raise(&var_expr.name, RuntimeError.UninitializedVariable, "Uninitialized variable"),
-                else => value,
+                else => value.*,
             };
         },
         .Assign => |*assign_expr| {

@@ -69,7 +69,8 @@ fn run(src: []const u8) !void {
         defer interpreter.deinit();
 
         Timer.start("interpret");
-        _ = interpreter.interpret(ast) catch {
+        _ = interpreter.interpret(ast) catch |err| {
+            print("\n{s}\n", .{@errorName(err)});
             //@todo add error reporting
             std.os.exit(70);
         };
