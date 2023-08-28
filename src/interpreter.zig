@@ -70,7 +70,7 @@ pub fn interpret(self: *Self, stmts: []const *Stmt) RuntimeError!void {
     }
 }
 
-fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
+fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
     switch (stmt.*) {
         .Print => |*print| {
             var val = try self.eval(print);
@@ -95,45 +95,71 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
             new_environment.* = Environment.init(self.allocator, self.environment);
 
             try self.environments.append(new_environment);
-            try self.executeBlock(block_stmt.stmts, new_environment);
+            return try self.executeBlock(block_stmt.stmts, new_environment);
         },
         .If => |*if_stmt| {
             var condition_value = try self.eval(&if_stmt.condition);
             if (isTruthy(condition_value)) {
-                try self.execute(if_stmt.then_branch);
+                return try self.execute(if_stmt.then_branch);
             } else if (if_stmt.else_branch) |else_branch| {
-                try self.execute(else_branch);
+                return try self.execute(else_branch);
             }
         },
         .While => |*while_stmt| {
-            while (isTruthy(try self.eval(&while_stmt.condition))) {
-                _ = try self.execute(while_stmt.body);
+            whileloop: while (isTruthy(try self.eval(&while_stmt.condition))) {
+                var maybe_stmt = try self.execute(while_stmt.body);
+
+                if (maybe_stmt) |executed_stmt| {
+                    switch (executed_stmt.*) {
+                        .Break => {
+                            std.debug.print("break from while", .{});
+                            break :whileloop;
+                        },
+                        else => {},
+                    }
+                }
             }
         },
-        .Break => {
-            // self.environment = self.environment.enclosing.?;
-        },
+        .Break => {},
     }
+    return stmt;
 }
 
-fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !void {
+fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const Stmt {
     var previous = self.environment;
     self.environment = environment;
 
+    var break_stmt: ?*const Stmt = null;
+
     loop: for (stmts) |stmt| {
-        switch (stmt.*) {
+        _ = switch (stmt.*) {
             .Break => {
-                std.debug.print("break", .{});
+                std.debug.print("break from block", .{});
+                self.environment = previous;
+                break_stmt = stmt;
                 break :loop;
             },
-            else => |*block_stmt| self.execute(block_stmt) catch |err| {
-                self.environment = previous;
-                return err;
+            else => |*block_stmt| {
+                var maybe_break = self.execute(block_stmt) catch |err| {
+                    self.environment = previous;
+                    return err;
+                };
+                if (maybe_break) |brk_stmt| {
+                    switch (brk_stmt.*) {
+                        .Break => {
+                            std.debug.print("break from block", .{});
+                            break_stmt = maybe_break;
+                            break :loop;
+                        },
+                        else => {},
+                    }
+                }
             },
-        }
+        };
     }
 
     self.environment = previous;
+    return break_stmt;
 }
 
 fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
