@@ -25,6 +25,7 @@ pub const ParseError = error{
     MissingLeftParenBeforeForCondition,
     MissingRightParenAfterForCondition,
     MissingSemiColonAfterForCondition,
+    MissingSemiColonAfterBreak,
 };
 
 tokens: []Token,
@@ -67,6 +68,7 @@ fn declaration(self: *Self) ParseError!?*Stmt {
             return null;
         };
     }
+
     return try self.statement();
 }
 
@@ -97,6 +99,10 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
 fn statement(self: *Self) ParseError!*Stmt {
     if (self.match(&.{.FOR})) {
         return try self.forStatement();
+    }
+
+    if (self.match(&.{.BREAK})) {
+        return try self.breakStatement();
     }
 
     if (self.match(&.{.IF})) {
@@ -158,8 +164,7 @@ fn forStatement(self: *Self) ParseError!*Stmt {
     var body = try self.statement();
 
     if (maybe_increment) |increment| {
-        // var stmts = [2]*Stmt{ body, try self.createStatement(.{ .Expr = increment.* }) };
-        var stmts = try self.allocator.alloc(*Stmt, 2);
+        var stmts = try self.allocator.alloc(*Stmt, 2); // @todo: cleanup memory ???
         stmts[0] = body;
         stmts[1] = try self.createStatement(.{ .Expr = increment.* });
         body = try self.createStatement(
@@ -176,13 +181,22 @@ fn forStatement(self: *Self) ParseError!*Stmt {
     );
 
     if (maybe_initializer) |initializer| {
-        var stmts = try self.allocator.alloc(*Stmt, 2);
+        var stmts = try self.allocator.alloc(*Stmt, 2); // @todo: cleanup memory ???
         stmts[0] = initializer;
         stmts[1] = body;
         body = try self.createStatement(.{ .Block = .{ .stmts = stmts } });
     }
 
     return body;
+}
+
+fn breakStatement(self: *Self) ParseError!*Stmt {
+    _ = try self.consume(
+        .SEMICOLON,
+        ParseError.MissingSemiColonAfterBreak,
+        "Expect ';' after break statement.",
+    );
+    return try self.createStatement(.{ .Break = .{} });
 }
 
 fn printStatement(self: *Self) ParseError!*Stmt {
@@ -503,12 +517,13 @@ fn primary(self: *Self) !*Expr {
     );
 }
 
+//@todo: deallocation ??
 fn createStatement(self: *Self, stmt: Stmt) std.mem.Allocator.Error!*Stmt {
     var ptr = self.allocator.create(Stmt) catch return ParseError.OutOfMemory;
     ptr.* = stmt;
     return ptr;
 }
-
+//@todo: deallocation ??
 fn createExpression(self: *Self, expr: Expr) std.mem.Allocator.Error!*Expr {
     var ptr = self.allocator.create(Expr) catch return ParseError.OutOfMemory;
     ptr.* = expr;

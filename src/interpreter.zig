@@ -110,6 +110,9 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!void {
                 _ = try self.execute(while_stmt.body);
             }
         },
+        .Break => {
+            // self.environment = self.environment.enclosing.?;
+        },
     }
 }
 
@@ -117,11 +120,17 @@ fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !void {
     var previous = self.environment;
     self.environment = environment;
 
-    for (stmts) |stmt| {
-        self.execute(stmt) catch |err| {
-            self.environment = previous;
-            return err;
-        };
+    loop: for (stmts) |stmt| {
+        switch (stmt.*) {
+            .Break => {
+                std.debug.print("break", .{});
+                break :loop;
+            },
+            else => |*block_stmt| self.execute(block_stmt) catch |err| {
+                self.environment = previous;
+                return err;
+            },
+        }
     }
 
     self.environment = previous;
