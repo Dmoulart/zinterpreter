@@ -111,10 +111,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
 
                 if (maybe_stmt) |executed_stmt| {
                     switch (executed_stmt.*) {
-                        .Break => {
-                            std.debug.print("break from while", .{});
-                            break :whileloop;
-                        },
+                        .Break => break :whileloop,
                         else => {},
                     }
                 }
@@ -132,30 +129,19 @@ fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const
     var break_stmt: ?*const Stmt = null;
 
     loop: for (stmts) |stmt| {
-        _ = switch (stmt.*) {
-            .Break => {
-                std.debug.print("break from block", .{});
-                self.environment = previous;
-                break_stmt = stmt;
-                break :loop;
-            },
-            else => |*block_stmt| {
-                var maybe_break = self.execute(block_stmt) catch |err| {
-                    self.environment = previous;
-                    return err;
-                };
-                if (maybe_break) |brk_stmt| {
-                    switch (brk_stmt.*) {
-                        .Break => {
-                            std.debug.print("break from block", .{});
-                            break_stmt = maybe_break;
-                            break :loop;
-                        },
-                        else => {},
-                    }
-                }
-            },
+        var maybe_break = self.execute(stmt) catch |err| {
+            self.environment = previous;
+            return err;
         };
+        if (maybe_break) |brk_stmt| {
+            switch (brk_stmt.*) {
+                .Break => {
+                    break_stmt = maybe_break;
+                    break :loop;
+                },
+                else => {},
+            }
+        }
     }
 
     self.environment = previous;
