@@ -9,6 +9,7 @@ pub const Stmt = union(enum) {
     Var: Var,
     While: While,
     Break: Break,
+    Continue: Continue,
 
     pub const Block = struct {
         stmts: []*Stmt,
@@ -28,7 +29,10 @@ pub const Stmt = union(enum) {
     pub const While = struct {
         condition: Expr,
         body: *Stmt,
+        inc: ?*Expr,
     };
 
     pub const Break = struct {};
+
+    pub const Continue = struct {};
 };

@@ -8,6 +8,8 @@ const Environment = @import("./environment.zig");
 const ErrorReporter = @import("./error-reporter.zig").ErrorReporter;
 const Err = ErrorReporter(RuntimeError);
 
+const jsonPrint = @import("json-printer.zig").jsonPrint;
+
 const Self = @This();
 
 environment: *Environment,
@@ -112,12 +114,19 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
                 if (maybe_stmt) |executed_stmt| {
                     switch (executed_stmt.*) {
                         .Break => break :whileloop,
+                        .Continue => {
+                            _ = if (while_stmt.inc) |inc| try self.eval(inc) else null;
+                            continue :whileloop;
+                        },
                         else => {},
                     }
                 }
+                _ = if (while_stmt.inc) |inc| try self.eval(inc) else null;
             }
+            return stmt;
         },
-        .Break => {},
+        .Break => return stmt,
+        .Continue => return stmt,
     }
     return stmt;
 }
@@ -126,17 +135,22 @@ fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const
     var previous = self.environment;
     self.environment = environment;
 
-    var break_stmt: ?*const Stmt = null;
+    var interrupt_stmt: ?*const Stmt = null;
 
     loop: for (stmts) |stmt| {
-        var maybe_break = self.execute(stmt) catch |err| {
+        var maybe_interrupt = self.execute(stmt) catch |err| {
             self.environment = previous;
             return err;
         };
-        if (maybe_break) |brk_stmt| {
+        if (maybe_interrupt) |brk_stmt| {
             switch (brk_stmt.*) {
                 .Break => {
-                    break_stmt = maybe_break;
+                    interrupt_stmt = maybe_interrupt;
+                    break :loop;
+                },
+                .Continue => {
+                    // std.debug.print("continue", .{});
+                    interrupt_stmt = maybe_interrupt;
                     break :loop;
                 },
                 else => {},
@@ -145,10 +159,11 @@ fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const
     }
 
     self.environment = previous;
-    return break_stmt;
+    return interrupt_stmt;
 }
 
 fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
+    // std.debug.print("\neval\n", .{});
     return switch (expr.*) {
         .Literal => |*lit| literalCast(lit),
         .Grouping => |*group| try self.eval(group.expr),
@@ -220,6 +235,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         },
         .Assign => |*assign_expr| {
             const value = try self.eval(assign_expr.value);
+            // std.debug.print("\nassign val {any} to {s} \n", .{ value, assign_expr.name.lexeme });
             // @todo: runtime error reporting ?
             self.environment.assign(assign_expr.name.lexeme, value) catch return Err.raise(
                 &assign_expr.name,

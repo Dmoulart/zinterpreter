@@ -26,6 +26,7 @@ pub const ParseError = error{
     MissingRightParenAfterForCondition,
     MissingSemiColonAfterForCondition,
     MissingSemiColonAfterBreak,
+    MissingSemiColonAfterContinue,
 };
 
 tokens: []Token,
@@ -105,6 +106,10 @@ fn statement(self: *Self) ParseError!*Stmt {
         return try self.breakStatement();
     }
 
+    if (self.match(&.{.CONTINUE})) {
+        return try self.continueStatement();
+    }
+
     if (self.match(&.{.IF})) {
         return try self.ifStatement();
     }
@@ -163,20 +168,26 @@ fn forStatement(self: *Self) ParseError!*Stmt {
 
     var body = try self.statement();
 
-    if (maybe_increment) |increment| {
-        var stmts = try self.allocator.alloc(*Stmt, 2); // @todo: cleanup memory ???
-        stmts[0] = body;
-        stmts[1] = try self.createStatement(.{ .Expr = increment.* });
-        body = try self.createStatement(
-            .{
-                .Block = .{ .stmts = stmts[0..] },
-            },
-        );
-    }
+    // if (maybe_increment) |increment| {
+    //     std.debug.print("MAYBE INCREMENT", .{});
+    //     var stmts = try self.allocator.alloc(*Stmt, 2); // @todo: cleanup memory ???
+    //     stmts[0] = body;
+    //     stmts[1] = try self.createStatement(.{ .Expr = increment.* });
+    //     body = try self.createStatement(
+    //         .{
+    //             .Block = .{ .stmts = stmts },
+    //         },
+    //     );
+    // }
+    // replaced this with a special inc variable
 
     body = try self.createStatement(
         .{
-            .While = .{ .condition = condition.*, .body = body },
+            .While = .{
+                .condition = condition.*,
+                .body = body,
+                .inc = if (maybe_increment) |increment| increment else null,
+            },
         },
     );
 
@@ -188,6 +199,15 @@ fn forStatement(self: *Self) ParseError!*Stmt {
     }
 
     return body;
+}
+
+fn continueStatement(self: *Self) ParseError!*Stmt {
+    _ = try self.consume(
+        .SEMICOLON,
+        ParseError.MissingSemiColonAfterContinue,
+        "Expect ';' after break continue statement.",
+    );
+    return try self.createStatement(.{ .Continue = .{} });
 }
 
 fn breakStatement(self: *Self) ParseError!*Stmt {
@@ -229,6 +249,7 @@ fn whileStatement(self: *Self) ParseError!*Stmt {
     return try self.createStatement(.{ .While = .{
         .condition = condition.*,
         .body = body,
+        .inc = null,
     } });
 }
 
