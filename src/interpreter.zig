@@ -2,6 +2,8 @@ const std = @import("std");
 const Expr = @import("./ast/expr.zig").Expr;
 const Stmt = @import("./ast/stmt.zig").Stmt;
 const Token = @import("./token.zig");
+const Callable = @import("./callable.zig");
+const Clock = @import("./globals.zig").Clock;
 const report = @import("./error-reporter.zig").report;
 const Environment = @import("./environment.zig");
 
@@ -12,6 +14,7 @@ const jsonPrint = @import("json-printer.zig").jsonPrint;
 
 const Self = @This();
 
+global_environment: *Environment,
 environment: *Environment,
 environments: std.ArrayList(*Environment),
 allocator: std.mem.Allocator,
@@ -21,6 +24,8 @@ pub const RuntimeError = error{
     UndefinedVariable,
     OutOfMemory,
     UninitializedVariable,
+    WrongNumberOfArguments,
+    NonCallableExpression,
 };
 
 pub const Values = enum {
@@ -29,6 +34,7 @@ pub const Values = enum {
     Number,
     String,
     Uninitialized,
+    Callable,
 };
 
 pub const Value = union(Values) {
@@ -37,6 +43,7 @@ pub const Value = union(Values) {
     Number: f64,
     String: []const u8,
     Uninitialized: ?bool,
+    Callable: Callable,
 
     pub fn stringify(self: *Value, buf: []u8) []const u8 {
         return switch (self.*) {
@@ -55,7 +62,10 @@ pub fn init(allocator: std.mem.Allocator) !Self {
     global_environment.* = Environment.init(allocator, null);
     try environments.append(global_environment);
 
+    global_environment.define("clock", Clock);
+
     return Self{
+        .global_environment = global_environment,
         .environment = global_environment,
         .environments = environments,
         .allocator = allocator,
@@ -83,7 +93,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             _ = try self.eval(expr);
         },
         .Var => |*var_stmt| {
-            var value: Value = if (var_stmt.initializer) |*initializer|
+            const value: Value = if (var_stmt.initializer) |*initializer|
                 try self.eval(initializer)
             else
                 .{ .Uninitialized = null };
@@ -100,7 +110,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             return try self.executeBlock(block_stmt.stmts, new_environment);
         },
         .If => |*if_stmt| {
-            var condition_value = try self.eval(&if_stmt.condition);
+            const condition_value = try self.eval(&if_stmt.condition);
             if (isTruthy(condition_value)) {
                 return try self.execute(if_stmt.then_branch);
             } else if (if_stmt.else_branch) |else_branch| {
@@ -168,7 +178,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         .Literal => |*lit| literalCast(lit),
         .Grouping => |*group| try self.eval(group.expr),
         .Unary => |*unary| {
-            var right = try self.eval(unary.right);
+            const right = try self.eval(unary.right);
 
             return switch (unary.op.type) {
                 .BANG => .{ .Boolean = !isTruthy(right) },
@@ -223,7 +233,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             };
         },
         .Variable => |*var_expr| {
-            var value = self.environment.getOrFail(var_expr.name.lexeme) catch return Err.raise(
+            const value = self.environment.getOrFail(var_expr.name.lexeme) catch return Err.raise(
                 &var_expr.name,
                 RuntimeError.UndefinedVariable,
                 "Undefined variable",
@@ -245,7 +255,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             return value;
         },
         .Logical => |*logical_expr| {
-            var left = try self.eval(logical_expr.left);
+            const left = try self.eval(logical_expr.left);
 
             if (logical_expr.op.type == .OR) {
                 if (isTruthy(left)) return left;
@@ -254,6 +264,42 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             }
 
             return try self.eval(logical_expr.right);
+        },
+        .Call => |*call_expr| {
+            const maybe_callee = switch (try self.eval(call_expr.callee)) {
+                .String => Err.raise(
+                    call_expr.paren,
+                    RuntimeError.NonCallableExpression,
+                    "Non callable expression",
+                ),
+                else => true,
+            };
+            if (maybe_callee) |callee| {
+                _ = callee;
+                var args = std.ArrayList(Value).init(self.allocator);
+                for (call_expr.args) |arg| {
+                    try args.append(try self.eval(arg));
+                }
+
+                var function: Callable = undefined;
+                if (args.items.len - 1 != function.arity()) {
+                    return Err.raise(
+                        call_expr.paren,
+                        RuntimeError.WrongNumberOfArguments,
+                        "Wrong number of arguments",
+                    );
+                }
+                return function.call(self, &args);
+                // call function
+            } else |err| {
+                return Err.raise(
+                    maybe_callee.paren,
+                    err,
+                    "Can only call functions and classes.",
+                );
+            }
+
+            // callee.call(self, *args);
         },
     };
 }

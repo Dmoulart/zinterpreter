@@ -3,6 +3,7 @@ const Token = @import("../token.zig");
 pub const Expr = union(enum) {
     Assign: Assign,
     Binary: Binary,
+    Call: Call,
     Grouping: Grouping,
     Literal: Literal,
     Logical: Logical,
@@ -18,6 +19,12 @@ pub const Expr = union(enum) {
         left: *const Expr,
         op: Token,
         right: *const Expr,
+    };
+
+    pub const Call = struct {
+        callee: *const Expr,
+        paren: *Token,
+        args: []*const Expr,
     };
 
     pub const Grouping = struct {

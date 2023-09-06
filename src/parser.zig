@@ -27,6 +27,8 @@ pub const ParseError = error{
     MissingSemiColonAfterForCondition,
     MissingSemiColonAfterBreak,
     MissingSemiColonAfterContinue,
+    MissingClosingParenAfterArguments,
+    TooMuchArguments,
 };
 
 tokens: []Token,
@@ -35,12 +37,14 @@ current: u32 = 0,
 allocator: std.mem.Allocator,
 
 stmts: std.ArrayList(*Stmt),
+// args: std.ArrayList(*Expr),
 
 pub fn init(tokens: []Token, allocator: std.mem.Allocator) Self {
     return Self{
         .tokens = tokens,
         .allocator = allocator,
         .stmts = std.ArrayList(*Stmt).init(allocator),
+        // .args = std.ArrayList(*Expr).init(allocator),
     };
 }
 
@@ -451,7 +455,59 @@ fn unary(self: *Self) ParseError!*Expr {
         });
     }
 
-    return try self.primary();
+    return try self.call();
+}
+
+fn call(self: *Self) ParseError!*Expr {
+    const expr = try self.primary();
+
+    while (true) {
+        if (self.match(&.{.LEFT_PAREN})) {
+            _ = try self.finishCall(expr);
+        } else {
+            break;
+        }
+    }
+
+    return expr;
+}
+
+fn finishCall(self: *Self, callee: *const Expr) ParseError!*Expr {
+    var args = std.ArrayList(*Expr).init(self.allocator);
+
+    if (!self.check(.RIGHT_PAREN)) {
+        var first_expr = try self.expression();
+        try args.append(first_expr);
+
+        while (self.match(&.{.COMMA})) {
+            var expr = try self.expression();
+            try args.append(expr);
+        }
+    }
+
+    const paren = try self.consume(
+        .RIGHT_PAREN,
+        ParseError.MissingClosingParenAfterArguments,
+        "Expect ')' after arguments.",
+    );
+
+    if (args.items.len > 255) {
+        return Err.raise(
+            self.peek(),
+            ParseError.TooMuchArguments,
+            "Functions cannot have more than 255 arguments",
+        );
+    }
+
+    return try self.createExpression(
+        .{
+            .Call = .{
+                .callee = callee,
+                .paren = paren,
+                .args = try args.toOwnedSlice(),
+            },
+        },
+    );
 }
 
 fn match(self: *Self, comptime types: []const Token.Types) bool {
