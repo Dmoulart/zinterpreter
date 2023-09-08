@@ -4,6 +4,7 @@ const Token = @import("../token.zig");
 pub const Stmt = union(enum) {
     Block: Block,
     Expr: Expr,
+    Function: Function,
     If: If,
     Print: Expr,
     Var: Var,
@@ -13,6 +14,12 @@ pub const Stmt = union(enum) {
 
     pub const Block = struct {
         stmts: []*Stmt,
+    };
+
+    pub const Function = struct {
+        name: Token,
+        args: []Token,
+        body: []*Stmt,
     };
 
     pub const If = struct {

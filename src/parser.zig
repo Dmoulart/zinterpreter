@@ -12,22 +12,28 @@ const Self = @This();
 pub const ParseError = error{
     OutOfMemory,
     MissingExpression,
-    MissingRightParen,
+    MissingClosingParen,
     MissingSemiColonAfterValue,
     MissingSemiColonAfterVarDeclaration,
     MissingVariableName,
+    MissingFunctionName,
+    MissingParameterName,
     InvalidAssignmentTarget,
     MissingClosingBrace,
-    MissingLeftParenBeforeIfCondition,
-    MissingRightParenAfterIfCondition,
-    MissingLeftParenBeforeWhileCondition,
-    MissingLeftParenAfterWhileCondition,
-    MissingLeftParenBeforeForCondition,
-    MissingRightParenAfterForCondition,
+    MissingOpeningParenBeforeIfCondition,
+    MissingClosingParenAfterIfCondition,
+    MissingOpeningParenBeforeWhileCondition,
+    MissingOpeningParenAfterWhileCondition,
+    MissingOpeningParenBeforeForCondition,
+    MissingClosingParenAfterForCondition,
+    MissingClosingParenAfterParameters,
     MissingSemiColonAfterForCondition,
     MissingSemiColonAfterBreak,
     MissingSemiColonAfterContinue,
+    MissingOpeningParenBeforeParameters,
     MissingClosingParenAfterArguments,
+    MissingOpeningBraceBeforeFunctionBody,
+    MissingClosingBraceAfterFunctionBody,
     TooMuchArguments,
 };
 
@@ -67,6 +73,13 @@ pub fn parse(self: *Self) ParseError![]*Stmt {
 }
 
 fn declaration(self: *Self) ParseError!?*Stmt {
+    if (self.match(&.{.FUN})) {
+        return self.function("function") catch {
+            try self.synchronize();
+            return null;
+        };
+    }
+
     if (self.match(&.{.VAR})) {
         return self.varDeclaration() catch {
             try self.synchronize();
@@ -78,7 +91,7 @@ fn declaration(self: *Self) ParseError!?*Stmt {
 }
 
 fn varDeclaration(self: *Self) ParseError!*Stmt {
-    var name = try self.consume(
+    const name = try self.consume(
         .IDENTIFIER,
         ParseError.MissingVariableName,
         "Expect variable name.",
@@ -99,6 +112,83 @@ fn varDeclaration(self: *Self) ParseError!*Stmt {
         .name = name.*,
         .initializer = initializer,
     } });
+}
+
+fn function(self: *Self, comptime kind: []const u8) ParseError!*Stmt {
+    const name = try self.consume(
+        .IDENTIFIER,
+        ParseError.MissingFunctionName,
+        "Expect" ++ kind ++ "name.",
+    );
+
+    _ = try self.consume(
+        .LEFT_PAREN,
+        ParseError.MissingOpeningParenBeforeParameters,
+        "Expect ( before parameters.",
+    );
+
+    var args = std.ArrayList(Token).init(self.allocator);
+
+    if (!self.check(.RIGHT_PAREN)) {
+        // @todo: do while would have been great in this case
+        if (args.items.len >= 255) {
+            return Err.raise(
+                self.peek(),
+                ParseError.TooMuchArguments,
+                "Functions cannot have more than 255 arguments",
+            );
+        }
+
+        const first_ident = try self.consume(
+            .IDENTIFIER,
+            ParseError.MissingParameterName,
+            "Expect parameter name.",
+        );
+        try args.append(first_ident.*);
+
+        while (self.match(&.{.COMMA})) {
+            if (args.items.len >= 255) {
+                return Err.raise(
+                    self.peek(),
+                    ParseError.TooMuchArguments,
+                    "Functions cannot have more than 255 arguments",
+                );
+            }
+
+            const ident = try self.consume(
+                .IDENTIFIER,
+                ParseError.MissingParameterName,
+                "Expect parameter name.",
+            );
+            try args.append(ident.*);
+        }
+    }
+
+    _ = try self.consume(
+        .RIGHT_PAREN,
+        ParseError.MissingClosingParenAfterParameters,
+        "Expect ) after parameters.",
+    );
+
+    _ = try self.consume(
+        .LEFT_BRACE,
+        ParseError.MissingOpeningBraceBeforeFunctionBody,
+        "Expect { before function body.",
+    );
+
+    var body = try self.block();
+
+    return try self.createStatement(.{
+        .Function = .{
+            .name = name.*,
+            .args = args.toOwnedSlice() catch return Err.raise(
+                self.peek(),
+                ParseError.OutOfMemory,
+                "Out of memory during function arguments definition",
+            ),
+            .body = body,
+        },
+    });
 }
 
 fn statement(self: *Self) ParseError!*Stmt {
@@ -140,7 +230,7 @@ fn statement(self: *Self) ParseError!*Stmt {
 fn forStatement(self: *Self) ParseError!*Stmt {
     _ = try self.consume(
         .LEFT_PAREN,
-        ParseError.MissingLeftParenBeforeForCondition,
+        ParseError.MissingOpeningParenBeforeForCondition,
         "Expect '(' before for condition.",
     );
 
@@ -166,12 +256,11 @@ fn forStatement(self: *Self) ParseError!*Stmt {
 
     _ = try self.consume(
         .RIGHT_PAREN,
-        ParseError.MissingRightParenAfterForCondition,
+        ParseError.MissingClosingParenAfterForCondition,
         "Expect ')' after for condition.",
     );
 
     var body = try self.statement();
-
 
     body = try self.createStatement(
         .{
@@ -224,7 +313,7 @@ fn printStatement(self: *Self) ParseError!*Stmt {
 fn whileStatement(self: *Self) ParseError!*Stmt {
     _ = try self.consume(
         .LEFT_PAREN,
-        ParseError.MissingLeftParenBeforeWhileCondition,
+        ParseError.MissingOpeningParenBeforeWhileCondition,
         "Expect '(' after 'while'.",
     );
 
@@ -232,7 +321,7 @@ fn whileStatement(self: *Self) ParseError!*Stmt {
 
     _ = try self.consume(
         .RIGHT_PAREN,
-        ParseError.MissingLeftParenAfterWhileCondition,
+        ParseError.MissingOpeningParenAfterWhileCondition,
         "Expect ')' after 'condition'.",
     );
 
@@ -248,7 +337,7 @@ fn whileStatement(self: *Self) ParseError!*Stmt {
 fn ifStatement(self: *Self) ParseError!*Stmt {
     _ = try self.consume(
         .LEFT_PAREN,
-        ParseError.MissingLeftParenBeforeIfCondition,
+        ParseError.MissingOpeningParenBeforeIfCondition,
         "Expect '(' after 'if'.",
     );
 
@@ -256,7 +345,7 @@ fn ifStatement(self: *Self) ParseError!*Stmt {
 
     _ = try self.consume(
         .RIGHT_PAREN,
-        ParseError.MissingRightParenAfterIfCondition,
+        ParseError.MissingClosingParenAfterIfCondition,
         "Expect ')' after if condition.",
     );
 
@@ -492,7 +581,11 @@ fn finishCall(self: *Self, callee: *const Expr) ParseError!*Expr {
             .Call = .{
                 .callee = callee,
                 .paren = paren,
-                .args = try args.toOwnedSlice(),
+                .args = args.toOwnedSlice() catch return Err.raise(
+                    self.peek(),
+                    ParseError.OutOfMemory,
+                    "Out of memory during function arguments definition",
+                ),
             },
         },
     );
@@ -564,7 +657,7 @@ fn primary(self: *Self) !*Expr {
         var expr = try self.expression();
         _ = try self.consume(
             .RIGHT_PAREN,
-            ParseError.MissingRightParen,
+            ParseError.MissingClosingParen,
             "Expect ) after expression",
         );
 

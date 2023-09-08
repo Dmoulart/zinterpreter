@@ -140,6 +140,10 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             }
             return stmt;
         },
+        .Function => |*function| {
+            _ = function;
+            return stmt;
+        },
         .Break => return stmt,
         .Continue => return stmt,
     }
@@ -284,7 +288,6 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
                 try args.append(&(try self.eval(arg))); // <- big crap !!
             }
 
-            // var function: Callable = undefined; // try self.environment.getOrFail(callee.Variable.name);
             if (args.items.len != function.arity(&function)) {
                 return Err.raise(
                     call_expr.paren,
