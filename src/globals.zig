@@ -4,25 +4,27 @@ const Expr = @import("./ast/expr.zig").Expr;
 const Interpreter = @import("./interpreter.zig");
 
 const ClockImpl = struct {
-    pub fn arity(self: *Callable) u8 {
+    pub fn arity(self: *const Callable) u8 {
         _ = self;
         return 0;
     }
-    pub fn call(self: *Callable, interpreter: *Interpreter, args: *std.ArrayList(*Expr)) i64 {
+    pub fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
         _ = args;
         _ = interpreter;
         _ = self;
 
-        return std.time.timestamp();
+        return .{ .Number = @as(f64, @floatFromInt(std.time.timestamp())) };
     }
 
-    pub fn toString() []const u8 {
+    pub fn toString(self: *const Callable) []const u8 {
+        _ = self;
         return "<native fn>";
     }
 };
 
 pub const Clock = Callable.init(.{
-    .call = ClockImpl.call,
-    .arity = ClockImpl.arity,
-    .toString = ClockImpl.toString,
+    .call = &ClockImpl.call,
+    .arity = &ClockImpl.arity,
+    .toString = &ClockImpl.toString,
 });
+

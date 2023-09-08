@@ -172,18 +172,6 @@ fn forStatement(self: *Self) ParseError!*Stmt {
 
     var body = try self.statement();
 
-    // if (maybe_increment) |increment| {
-    //     std.debug.print("MAYBE INCREMENT", .{});
-    //     var stmts = try self.allocator.alloc(*Stmt, 2); // @todo: cleanup memory ???
-    //     stmts[0] = body;
-    //     stmts[1] = try self.createStatement(.{ .Expr = increment.* });
-    //     body = try self.createStatement(
-    //         .{
-    //             .Block = .{ .stmts = stmts },
-    //         },
-    //     );
-    // }
-    // replaced this with a special inc variable
 
     body = try self.createStatement(
         .{
@@ -459,11 +447,11 @@ fn unary(self: *Self) ParseError!*Expr {
 }
 
 fn call(self: *Self) ParseError!*Expr {
-    const expr = try self.primary();
+    var expr = try self.primary();
 
     while (true) {
         if (self.match(&.{.LEFT_PAREN})) {
-            _ = try self.finishCall(expr);
+            expr = try self.finishCall(expr);
         } else {
             break;
         }

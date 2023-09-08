@@ -52,6 +52,7 @@ pub const Value = union(Values) {
             .Number => |number| std.fmt.bufPrint(buf, "{d}", .{number}) catch "Number Printing Error",
             .String => |string| string,
             .Uninitialized => "uninitialized",
+            .Callable => "<callable value>",
         };
     }
 };
@@ -62,7 +63,7 @@ pub fn init(allocator: std.mem.Allocator) !Self {
     global_environment.* = Environment.init(allocator, null);
     try environments.append(global_environment);
 
-    global_environment.define("clock", Clock);
+    try global_environment.define("now", .{ .Callable = Clock });
 
     return Self{
         .global_environment = global_environment,
@@ -99,7 +100,11 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
                 .{ .Uninitialized = null };
 
             self.environment.define(var_stmt.name.lexeme, value) catch |err| switch (err) {
-                error.OutOfMemory => return Err.raise(&var_stmt.name, RuntimeError.OutOfMemory, "Out of memory"),
+                error.OutOfMemory => return Err.raise(
+                    &var_stmt.name,
+                    RuntimeError.OutOfMemory,
+                    "Out of memory",
+                ),
             };
         },
         .Block => |*block_stmt| {
@@ -159,7 +164,6 @@ fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const
                     break :loop;
                 },
                 .Continue => {
-                    // std.debug.print("continue", .{});
                     interrupt_stmt = maybe_interrupt;
                     break :loop;
                 },
@@ -238,6 +242,7 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
                 RuntimeError.UndefinedVariable,
                 "Undefined variable",
             );
+
             return switch (value.*) {
                 .Uninitialized => Err.raise(&var_expr.name, RuntimeError.UninitializedVariable, "Uninitialized variable"),
                 else => value.*,
@@ -245,7 +250,6 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         },
         .Assign => |*assign_expr| {
             const value = try self.eval(assign_expr.value);
-            // std.debug.print("\nassign val {any} to {s} \n", .{ value, assign_expr.name.lexeme });
             // @todo: runtime error reporting ?
             self.environment.assign(assign_expr.name.lexeme, value) catch return Err.raise(
                 &assign_expr.name,
@@ -266,40 +270,29 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             return try self.eval(logical_expr.right);
         },
         .Call => |*call_expr| {
-            const maybe_callee = switch (try self.eval(call_expr.callee)) {
-                .String => Err.raise(
+            const function = switch (try self.eval(call_expr.callee)) {
+                .Callable => |function| function,
+                else => return Err.raise(
                     call_expr.paren,
                     RuntimeError.NonCallableExpression,
                     "Non callable expression",
                 ),
-                else => true,
             };
-            if (maybe_callee) |callee| {
-                _ = callee;
-                var args = std.ArrayList(Value).init(self.allocator);
-                for (call_expr.args) |arg| {
-                    try args.append(try self.eval(arg));
-                }
 
-                var function: Callable = undefined;
-                if (args.items.len - 1 != function.arity()) {
-                    return Err.raise(
-                        call_expr.paren,
-                        RuntimeError.WrongNumberOfArguments,
-                        "Wrong number of arguments",
-                    );
-                }
-                return function.call(self, &args);
-                // call function
-            } else |err| {
-                return Err.raise(
-                    maybe_callee.paren,
-                    err,
-                    "Can only call functions and classes.",
-                );
+            var args = std.ArrayList(*const Value).init(self.allocator);
+            for (call_expr.args) |arg| {
+                try args.append(&(try self.eval(arg))); // <- big crap !!
             }
 
-            // callee.call(self, *args);
+            // var function: Callable = undefined; // try self.environment.getOrFail(callee.Variable.name);
+            if (args.items.len != function.arity(&function)) {
+                return Err.raise(
+                    call_expr.paren,
+                    RuntimeError.WrongNumberOfArguments,
+                    "Wrong number of arguments",
+                );
+            }
+            return function.call(&function, self, &args);
         },
     };
 }
@@ -323,6 +316,7 @@ fn isEqual(a: Value, b: Value) bool {
         .String => std.mem.eql(u8, a.String, b.String),
         .Number => a.Number == b.Number,
         .Uninitialized => false,
+        .Callable => false, //<-- todo
     };
 }
 
