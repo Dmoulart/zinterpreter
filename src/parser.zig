@@ -550,10 +550,11 @@ fn call(self: *Self) ParseError!*Expr {
 }
 
 fn finishCall(self: *Self, callee: *const Expr) ParseError!*Expr {
-    var args = std.ArrayList(*Expr).init(self.allocator);
+    var args = std.ArrayList(*const Expr).init(self.allocator);
 
     if (!self.check(.RIGHT_PAREN)) {
         var first_expr = try self.expression();
+
         try args.append(first_expr);
 
         while (self.match(&.{.COMMA})) {

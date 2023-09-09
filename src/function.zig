@@ -1,56 +1,35 @@
 const std = @import("std");
 const Interpreter = @import("./interpreter.zig");
+const Environment = @import("./environment.zig");
 const Callable = @import("./callable.zig");
 const Stmt = @import("./ast/stmt.zig").Stmt;
 const Expr = @import("./ast/expr.zig").Expr;
-// usingnamespace Callable;
 
 declaration: *Stmt.Function,
-// callable: Callable,
 
-fn createFunction(declaration: *Stmt.Function) type {
-    _ = declaration;
-    return struct {
-        pub fn arity(self: *const Callable) u8 {
-            _ = self;
-            return 0;
-        }
-        pub fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
-            _ = args;
-            _ = interpreter;
-            _ = self;
-
-            return .{ .Number = @as(f64, @floatFromInt(std.time.timestamp())) };
-        }
-
-        pub fn toString(self: *const Callable) []const u8 {
-            _ = self;
-            return "<native fn>";
-        }
-    };
+pub fn init() Callable {
+    return Callable.init(.{
+        .call = &call,
+        .arity = &arity,
+        .toString = &toString,
+    });
 }
 
-const Function = struct {
-    pub fn arity(self: *const Callable) u8 {
-        _ = self;
-        return 0;
-    }
-    pub fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
-        _ = args;
-        _ = interpreter;
-        _ = self;
+fn arity(self: *const Callable) usize {
+    return self.declaration.?.args.len;
+}
+fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
+    var env = Environment.init(interpreter.allocator, interpreter.global_environment);
 
-        return .{ .Number = @as(f64, @floatFromInt(std.time.timestamp())) };
+    for (args.items, 0..) |arg, i| {
+        env.define(self.declaration.?.args[i].lexeme, arg.*) catch unreachable;
     }
 
-    pub fn toString(self: *const Callable) []const u8 {
-        _ = self;
-        return "<native fn>";
-    }
-};
+    _ = interpreter.executeBlock(self.declaration.?.body, &env) catch unreachable;
 
-// pub const Clock = Callable.init(.{
-//     .call = &ClockImpl.call,
-//     .arity = &ClockImpl.arity,
-//     .toString = &ClockImpl.toString,
-// });
+    return .{ .Nil = null };
+}
+
+fn toString(self: *const Callable) []const u8 {
+    return self.declaration.?.name.lexeme;
+}

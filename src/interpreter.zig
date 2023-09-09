@@ -3,7 +3,8 @@ const Expr = @import("./ast/expr.zig").Expr;
 const Stmt = @import("./ast/stmt.zig").Stmt;
 const Token = @import("./token.zig");
 const Callable = @import("./callable.zig");
-const Clock = @import("./globals.zig").Clock;
+const Function = @import("./function.zig");
+const Globals = @import("./globals.zig");
 const report = @import("./error-reporter.zig").report;
 const Environment = @import("./environment.zig");
 
@@ -63,7 +64,8 @@ pub fn init(allocator: std.mem.Allocator) !Self {
     global_environment.* = Environment.init(allocator, null);
     try environments.append(global_environment);
 
-    try global_environment.define("now", .{ .Callable = Clock });
+    try global_environment.define("now", .{ .Callable = Globals.Clock });
+    try global_environment.define("typeof", .{ .Callable = Globals.TypeOf });
 
     return Self{
         .global_environment = global_environment,
@@ -140,8 +142,10 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             }
             return stmt;
         },
-        .Function => |*function| {
-            _ = function;
+        .Function => |*function_stmt| {
+            var function = Function.init();
+            function.declaration = function_stmt;
+            try self.environment.define(function_stmt.name.lexeme, .{ .Callable = function });
             return stmt;
         },
         .Break => return stmt,
@@ -150,7 +154,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
     return stmt;
 }
 
-fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const Stmt {
+pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const Stmt {
     var previous = self.environment;
     self.environment = environment;
 
@@ -295,7 +299,9 @@ fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
                     "Wrong number of arguments",
                 );
             }
-            return function.call(&function, self, &args);
+            var ret = function.call(&function, self, &args);
+            args.deinit();
+            return ret;
         },
     };
 }
