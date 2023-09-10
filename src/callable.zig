@@ -1,5 +1,6 @@
 const std = @import("std");
 const Interpreter = @import("./interpreter.zig");
+const Environment = @import("./environment.zig");
 const Expr = @import("./ast/expr.zig").Expr;
 const Stmt = @import("./ast/stmt.zig").Stmt;
 const Self = @This();
@@ -19,6 +20,7 @@ const ToString = *const fn (self: *Self) []const u8;
 arity: Arity,
 call: Call,
 declaration: ?*const Stmt.Function,
+closure: ?*Environment,
 
 toString: ToString,
 
@@ -27,6 +29,7 @@ pub const Implementation = struct {
     call: Call,
     toString: ToString,
     declaration: ?*const Stmt.Function = null,
+    closure: ?*Environment = null,
 };
 
 pub fn init(comptime impl: Implementation) Self {
@@ -35,6 +38,7 @@ pub fn init(comptime impl: Implementation) Self {
         .call = impl.call,
         .toString = impl.toString,
         .declaration = impl.declaration,
+        .closure = impl.closure,
     };
 }
 

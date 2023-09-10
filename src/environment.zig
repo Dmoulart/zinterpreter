@@ -7,6 +7,7 @@ const Self = @This();
 values: StringHashMap(Value),
 
 enclosing: ?*Self,
+debug: []const u8 = "",
 
 pub fn init(allocator: std.mem.Allocator, enclosing: ?*Self) Self {
     return .{

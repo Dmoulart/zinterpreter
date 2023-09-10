@@ -5,8 +5,6 @@ const Callable = @import("./callable.zig");
 const Stmt = @import("./ast/stmt.zig").Stmt;
 const Expr = @import("./ast/expr.zig").Expr;
 
-declaration: *Stmt.Function,
-
 pub fn init() Callable {
     return Callable.init(.{
         .call = &call,
@@ -20,7 +18,8 @@ fn arity(self: *const Callable) usize {
 }
 
 fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
-    var env = Environment.init(interpreter.allocator, interpreter.global_environment);
+    var env = Environment.init(interpreter.allocator, self.closure.?);
+    env.debug = self.declaration.?.name.lexeme;
 
     for (args.items, 0..) |arg, i| {
         env.define(self.declaration.?.args[i].lexeme, arg.*) catch unreachable;

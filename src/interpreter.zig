@@ -62,6 +62,7 @@ pub fn init(allocator: std.mem.Allocator) !Self {
     var environments = std.ArrayList(*Environment).init(allocator);
     var global_environment = try allocator.create(Environment);
     global_environment.* = Environment.init(allocator, null);
+    global_environment.debug = "global";
     try environments.append(global_environment);
 
     try global_environment.define("now", .{ .Callable = Globals.Clock });
@@ -112,7 +113,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
         .Block => |*block_stmt| {
             var new_environment = try self.allocator.create(Environment);
             new_environment.* = Environment.init(self.allocator, self.environment);
-
+            new_environment.debug = "block env";
             try self.environments.append(new_environment);
             _ = try self.executeBlock(block_stmt.stmts, new_environment);
         },
@@ -145,6 +146,8 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
         .Function => |*function_stmt| {
             var function = Function.init();
             function.declaration = function_stmt;
+
+            function.closure = self.environment;
             try self.environment.define(function_stmt.name.lexeme, .{ .Callable = function });
             return stmt;
         },
@@ -189,7 +192,7 @@ pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?Bl
                     }
                     break :loop;
                 },
-                else => unreachable,
+                else => {},
             }
         }
     }
