@@ -7,6 +7,7 @@ pub const Stmt = union(enum) {
     Function: Function,
     If: If,
     Print: Expr,
+    Return: Return,
     Var: Var,
     While: While,
     Break: Break,
@@ -31,6 +32,11 @@ pub const Stmt = union(enum) {
     pub const Var = struct {
         name: Token,
         initializer: ?Expr,
+    };
+
+    pub const Return = struct {
+        keyword: Token,
+        value: ?*Expr,
     };
 
     pub const While = struct {

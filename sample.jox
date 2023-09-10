@@ -1,9 +1,5 @@
-fun double(n){
-    print n * 2;
+fun double(n) {
+ return n * 2;
 }
 
-fun say(msg, n) {
- print msg;
-}
-
-say("hello", 1);
+fun double(n) { return n * 2; } print double(10);

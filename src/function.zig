@@ -18,6 +18,7 @@ pub fn init() Callable {
 fn arity(self: *const Callable) usize {
     return self.declaration.?.args.len;
 }
+
 fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
     var env = Environment.init(interpreter.allocator, interpreter.global_environment);
 
@@ -25,9 +26,14 @@ fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*
         env.define(self.declaration.?.args[i].lexeme, arg.*) catch unreachable;
     }
 
-    _ = interpreter.executeBlock(self.declaration.?.body, &env) catch unreachable;
+    const maybe_return = interpreter.executeBlock(self.declaration.?.body, &env) catch unreachable;
 
-    return .{ .Nil = null };
+    const ret_val = if (maybe_return) |stmt| switch (stmt.*) {
+        .Return => |ret| if (ret.value) |val| interpreter.eval(val) catch unreachable else null,
+        else => null,
+    } else null;
+
+    return if (ret_val) |ret| ret else Interpreter.Value{ .Nil = null };
 }
 
 fn toString(self: *const Callable) []const u8 {

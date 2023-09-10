@@ -148,6 +148,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             try self.environment.define(function_stmt.name.lexeme, .{ .Callable = function });
             return stmt;
         },
+        .Return => return stmt,
         .Break => return stmt,
         .Continue => return stmt,
     }
@@ -175,6 +176,10 @@ pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*c
                     interrupt_stmt = maybe_interrupt;
                     break :loop;
                 },
+                .Return => {
+                    interrupt_stmt = maybe_interrupt;
+                    break :loop;
+                },
                 else => {},
             }
         }
@@ -184,7 +189,7 @@ pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*c
     return interrupt_stmt;
 }
 
-fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
+pub fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
     // std.debug.print("\neval\n", .{});
     return switch (expr.*) {
         .Literal => |*lit| literalCast(lit),

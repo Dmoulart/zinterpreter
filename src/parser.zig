@@ -14,6 +14,7 @@ pub const ParseError = error{
     MissingExpression,
     MissingClosingParen,
     MissingSemiColonAfterValue,
+    MissingSemiColonAfterReturnValue,
     MissingSemiColonAfterVarDeclaration,
     MissingVariableName,
     MissingFunctionName,
@@ -212,6 +213,10 @@ fn statement(self: *Self) ParseError!*Stmt {
         return try self.printStatement();
     }
 
+    if (self.match(&.{.RETURN})) {
+        return try self.returnStatement();
+    }
+
     if (self.match(&.{.WHILE})) {
         return try self.whileStatement();
     }
@@ -308,6 +313,23 @@ fn printStatement(self: *Self) ParseError!*Stmt {
         "Expect ';' after value.",
     );
     return try self.createStatement(.{ .Print = value.* });
+}
+
+fn returnStatement(self: *Self) ParseError!*Stmt {
+    const keyword = self.previous().*;
+    var value: ?*Expr = if (!self.check(.SEMICOLON)) try self.expression() else null;
+
+    _ = try self.consume(
+        .SEMICOLON,
+        ParseError.MissingSemiColonAfterReturnValue,
+        "Expect ';' after return value.",
+    );
+    return try self.createStatement(.{
+        .Return = .{
+            .keyword = keyword,
+            .value = value,
+        },
+    });
 }
 
 fn whileStatement(self: *Self) ParseError!*Stmt {
