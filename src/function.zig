@@ -26,14 +26,12 @@ fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*
         env.define(self.declaration.?.args[i].lexeme, arg.*) catch unreachable;
     }
 
-    const maybe_return = interpreter.executeBlock(self.declaration.?.body, &env) catch unreachable;
+    const return_value = interpreter.executeBlock(self.declaration.?.body, &env) catch unreachable;
 
-    const ret_val = if (maybe_return) |stmt| switch (stmt.*) {
-        .Return => |ret| if (ret.value) |val| interpreter.eval(val) catch unreachable else null,
-        else => null,
-    } else null;
-
-    return if (ret_val) |ret| ret else Interpreter.Value{ .Nil = null };
+    return if (return_value) |val| switch (val) {
+        .Return => |maybe_ret| if (maybe_ret) |ret| ret else Interpreter.Value{ .Nil = null },
+        else => Interpreter.Value{ .Nil = null },
+    } else Interpreter.Value{ .Nil = null };
 }
 
 fn toString(self: *const Callable) []const u8 {

@@ -3,3 +3,7 @@ fun double(n) {
 }
 
 fun double(n) { return n * 2; } print double(10);
+
+fun sqr(n) { return n * n; } print sqr(10);
+
+ fun count(n) { if (n > 1) count(n - 1); print n;} count(3);

@@ -114,7 +114,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             new_environment.* = Environment.init(self.allocator, self.environment);
 
             try self.environments.append(new_environment);
-            return try self.executeBlock(block_stmt.stmts, new_environment);
+            _ = try self.executeBlock(block_stmt.stmts, new_environment);
         },
         .If => |*if_stmt| {
             const condition_value = try self.eval(&if_stmt.condition);
@@ -155,11 +155,17 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
     return stmt;
 }
 
-pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*const Stmt {
+const BlockInterruption = union(enum) {
+    Break,
+    Continue,
+    Return: ?Value,
+};
+
+pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?BlockInterruption {
     var previous = self.environment;
     self.environment = environment;
 
-    var interrupt_stmt: ?*const Stmt = null;
+    var interrupt_stmt: ?BlockInterruption = null;
 
     loop: for (stmts) |stmt| {
         var maybe_interrupt = self.execute(stmt) catch |err| {
@@ -169,18 +175,21 @@ pub fn executeBlock(self: *Self, stmts: []*Stmt, environment: *Environment) !?*c
         if (maybe_interrupt) |brk_stmt| {
             switch (brk_stmt.*) {
                 .Break => {
-                    interrupt_stmt = maybe_interrupt;
+                    interrupt_stmt = .Break;
                     break :loop;
                 },
                 .Continue => {
-                    interrupt_stmt = maybe_interrupt;
+                    interrupt_stmt = .Continue;
                     break :loop;
                 },
-                .Return => {
-                    interrupt_stmt = maybe_interrupt;
+                .Return => |*return_stmt| {
+                    if (return_stmt.value) |return_expr| {
+                        const val = try self.eval(return_expr);
+                        interrupt_stmt = .{ .Return = val };
+                    }
                     break :loop;
                 },
-                else => {},
+                else => unreachable,
             }
         }
     }
