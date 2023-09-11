@@ -18,11 +18,10 @@ fn arity(self: *const Callable) usize {
 }
 
 fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
-    //memleak
+    //memleak ?
     var env = interpreter.allocator.create(Environment) catch unreachable;
     env.* = Environment.init(interpreter.allocator, self.closure.?);
     interpreter.environments.append(env) catch unreachable;
-    // var env = Environment.init(interpreter.allocator, self.closure.?);
     env.debug = self.declaration.?.name.lexeme;
 
     for (args.items, 0..) |arg, i| {
