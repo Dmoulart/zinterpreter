@@ -147,7 +147,12 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
             var function = Function.init();
             function.declaration = function_stmt;
 
-            function.closure = self.environment;
+            for (self.environments.items) |env| {
+                if (env == self.environment) {
+                    function.closure = env;
+                }
+            }
+            // function.closure = self.environment;
             try self.environment.define(function_stmt.name.lexeme, .{ .Callable = function });
             return stmt;
         },

@@ -18,14 +18,18 @@ fn arity(self: *const Callable) usize {
 }
 
 fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*const Interpreter.Value)) Interpreter.Value {
-    var env = Environment.init(interpreter.allocator, self.closure.?);
+    //memleak
+    var env = interpreter.allocator.create(Environment) catch unreachable;
+    env.* = Environment.init(interpreter.allocator, self.closure.?);
+    interpreter.environments.append(env) catch unreachable;
+    // var env = Environment.init(interpreter.allocator, self.closure.?);
     env.debug = self.declaration.?.name.lexeme;
 
     for (args.items, 0..) |arg, i| {
         env.define(self.declaration.?.args[i].lexeme, arg.*) catch unreachable;
     }
 
-    const return_value = interpreter.executeBlock(self.declaration.?.body, &env) catch unreachable;
+    const return_value = interpreter.executeBlock(self.declaration.?.body, env) catch unreachable;
 
     return if (return_value) |val| switch (val) {
         .Return => |maybe_ret| if (maybe_ret) |ret| ret else Interpreter.Value{ .Nil = null },
