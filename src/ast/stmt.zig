@@ -18,7 +18,7 @@ pub const Stmt = union(enum) {
     };
 
     pub const Function = struct {
-        name: Token,
+        name: ?Token,
         args: []Token,
         body: []*Stmt,
     };

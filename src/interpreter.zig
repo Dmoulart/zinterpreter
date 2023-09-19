@@ -149,7 +149,7 @@ fn execute(self: *Self, stmt: *const Stmt) RuntimeError!?*const Stmt {
 
             function.closure = self.environment;
             // function.closure = self.environment;
-            try self.environment.define(function_stmt.name.lexeme, .{ .Callable = function });
+            try self.environment.define(function_stmt.name.?.lexeme, .{ .Callable = function });
             return stmt;
         },
         .Return => return stmt,
@@ -294,6 +294,20 @@ pub fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
             }
 
             return try self.eval(logical_expr.right);
+        },
+        .Lambda => |*lambda_expr| {
+            var function = Function.init();
+            std.debug.print("lamba", .{});
+            var decl = .{
+                .name = null,
+                .body = lambda_expr.body,
+                .args = lambda_expr.args,
+            };
+            function.declaration = &decl;
+
+            function.closure = self.environment;
+
+            return .{ .Callable = function };
         },
         .Call => |*call_expr| {
             const function = switch (try self.eval(call_expr.callee)) {

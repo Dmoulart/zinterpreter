@@ -1,9 +1,11 @@
 const Token = @import("../token.zig");
+const Stmt = @import("./stmt.zig").Stmt;
 
 pub const Expr = union(enum) {
     Assign: Assign,
     Binary: Binary,
     Call: Call,
+    Lambda: Lambda,
     Grouping: Grouping,
     Literal: Literal,
     Logical: Logical,
@@ -25,6 +27,11 @@ pub const Expr = union(enum) {
         callee: *const Expr,
         paren: *Token,
         args: []*const Expr,
+    };
+
+    pub const Lambda = struct {
+        args: []Token,
+        body: []*Stmt,
     };
 
     pub const Grouping = struct {

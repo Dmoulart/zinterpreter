@@ -22,7 +22,6 @@ fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*
     var env = interpreter.allocator.create(Environment) catch unreachable;
     env.* = Environment.init(interpreter.allocator, self.closure.?);
     interpreter.environments.append(env) catch unreachable;
-    env.debug = self.declaration.?.name.lexeme;
 
     for (args.items, 0..) |arg, i| {
         env.define(self.declaration.?.args[i].lexeme, arg.*) catch unreachable;
@@ -37,5 +36,5 @@ fn call(self: *const Callable, interpreter: *Interpreter, args: *std.ArrayList(*
 }
 
 fn toString(self: *const Callable) []const u8 {
-    return self.declaration.?.name.lexeme;
+    return self.declaration.?.name.?.lexeme;
 }

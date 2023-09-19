@@ -119,7 +119,7 @@ fn function(self: *Self, comptime kind: []const u8) ParseError!*Stmt {
     const name = try self.consume(
         .IDENTIFIER,
         ParseError.MissingFunctionName,
-        "Expect" ++ kind ++ "name.",
+        "Expect " ++ kind ++ " name.",
     );
 
     _ = try self.consume(
@@ -407,7 +407,80 @@ fn block(self: *Self) ParseError![]*Stmt {
 }
 
 fn expression(self: *Self) ParseError!*Expr {
-    return try self.assignment();
+    if (self.match(&.{.FUN})) {
+        return try self.lambda();
+    }
+    return try self.orExpression();
+}
+
+fn lambda(self: *Self) ParseError!*Expr {
+    std.debug.print("lambda", .{});
+    _ = try self.consume(
+        .LEFT_PAREN,
+        ParseError.MissingOpeningParenBeforeParameters,
+        "Expect ( before parameters.",
+    );
+
+    var args = std.ArrayList(Token).init(self.allocator);
+
+    if (!self.check(.RIGHT_PAREN)) {
+        // @todo: do while would have been great in this case
+        if (args.items.len >= 255) {
+            return Err.raise(
+                self.peek(),
+                ParseError.TooMuchArguments,
+                "Functions cannot have more than 255 arguments",
+            );
+        }
+
+        const first_ident = try self.consume(
+            .IDENTIFIER,
+            ParseError.MissingParameterName,
+            "Expect parameter name.",
+        );
+        try args.append(first_ident.*);
+
+        while (self.match(&.{.COMMA})) {
+            if (args.items.len >= 255) {
+                return Err.raise(
+                    self.peek(),
+                    ParseError.TooMuchArguments,
+                    "Functions cannot have more than 255 arguments",
+                );
+            }
+
+            const ident = try self.consume(
+                .IDENTIFIER,
+                ParseError.MissingParameterName,
+                "Expect parameter name.",
+            );
+            try args.append(ident.*);
+        }
+    }
+
+    _ = try self.consume(
+        .RIGHT_PAREN,
+        ParseError.MissingClosingParenAfterParameters,
+        "Expect ) after parameters.",
+    );
+    _ = try self.consume(
+        .LEFT_BRACE,
+        ParseError.MissingOpeningBraceBeforeFunctionBody,
+        "Expect { before function body.",
+    );
+
+    var body = try self.block();
+
+    return try self.createExpression(.{
+        .Lambda = .{
+            .args = args.toOwnedSlice() catch return Err.raise(
+                self.peek(),
+                ParseError.OutOfMemory,
+                "Out of memory during function arguments definition",
+            ),
+            .body = body,
+        },
+    });
 }
 
 fn assignment(self: *Self) ParseError!*Expr {
