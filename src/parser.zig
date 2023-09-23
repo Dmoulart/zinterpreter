@@ -307,11 +307,13 @@ fn breakStatement(self: *Self) ParseError!*Stmt {
 
 fn printStatement(self: *Self) ParseError!*Stmt {
     var value = try self.expression();
+
     _ = try self.consume(
         .SEMICOLON,
         ParseError.MissingSemiColonAfterValue,
         "Expect ';' after value.",
     );
+
     return try self.createStatement(.{ .Print = value.* });
 }
 

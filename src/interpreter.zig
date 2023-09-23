@@ -297,7 +297,6 @@ pub fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         },
         .Lambda => |*lambda_expr| {
             var function = Function.init();
-            std.debug.print("lamba", .{});
             var decl = try self.allocator.create(Stmt.Function);
             decl.* = .{
                 .name = null,
@@ -322,7 +321,6 @@ pub fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
 
             var args = std.ArrayList(*const Value).init(self.allocator);
             for (call_expr.args) |arg| {
-                std.debug.print("eval arg", .{});
                 try args.append(&(try self.eval(arg))); // <- big crap !!
             }
 
