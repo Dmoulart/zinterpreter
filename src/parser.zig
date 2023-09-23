@@ -414,34 +414,27 @@ fn expression(self: *Self) ParseError!*Expr {
 }
 
 fn lambda(self: *Self) ParseError!*Expr {
-    std.debug.print("lambda", .{});
     _ = try self.consume(
         .LEFT_PAREN,
         ParseError.MissingOpeningParenBeforeParameters,
         "Expect ( before parameters.",
     );
 
-    var args = std.ArrayList(Token).init(self.allocator);
+    var args = try self.allocator.alloc(Token, 255);
+    // var args = std.ArrayList(Token).init(self.allocator);
+    var args_nb: usize = 0;
 
     if (!self.check(.RIGHT_PAREN)) {
-        // @todo: do while would have been great in this case
-        if (args.items.len >= 255) {
-            return Err.raise(
-                self.peek(),
-                ParseError.TooMuchArguments,
-                "Functions cannot have more than 255 arguments",
-            );
-        }
-
         const first_ident = try self.consume(
             .IDENTIFIER,
             ParseError.MissingParameterName,
             "Expect parameter name.",
         );
-        try args.append(first_ident.*);
-
+        args[args_nb] = first_ident.*;
+        // try args.append(first_ident.*);
+        args_nb += 1;
         while (self.match(&.{.COMMA})) {
-            if (args.items.len >= 255) {
+            if (args_nb >= 255) {
                 return Err.raise(
                     self.peek(),
                     ParseError.TooMuchArguments,
@@ -454,7 +447,9 @@ fn lambda(self: *Self) ParseError!*Expr {
                 ParseError.MissingParameterName,
                 "Expect parameter name.",
             );
-            try args.append(ident.*);
+            // try args.append(ident.*);
+            args[args_nb] = ident.*;
+            args_nb += 1;
         }
     }
 
@@ -473,11 +468,7 @@ fn lambda(self: *Self) ParseError!*Expr {
 
     return try self.createExpression(.{
         .Lambda = .{
-            .args = args.toOwnedSlice() catch return Err.raise(
-                self.peek(),
-                ParseError.OutOfMemory,
-                "Out of memory during function arguments definition",
-            ),
+            .args = args[0..args_nb],
             .body = body,
         },
     });

@@ -298,12 +298,13 @@ pub fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
         .Lambda => |*lambda_expr| {
             var function = Function.init();
             std.debug.print("lamba", .{});
-            var decl = .{
+            var decl = try self.allocator.create(Stmt.Function);
+            decl.* = .{
                 .name = null,
                 .body = lambda_expr.body,
                 .args = lambda_expr.args,
             };
-            function.declaration = &decl;
+            function.declaration = decl;
 
             function.closure = self.environment;
 
@@ -321,6 +322,7 @@ pub fn eval(self: *Self, expr: *const Expr) RuntimeError!Value {
 
             var args = std.ArrayList(*const Value).init(self.allocator);
             for (call_expr.args) |arg| {
+                std.debug.print("eval arg", .{});
                 try args.append(&(try self.eval(arg))); // <- big crap !!
             }
 
